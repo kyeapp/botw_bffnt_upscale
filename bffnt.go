@@ -4,7 +4,10 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/png"
 	"io/ioutil"
+	"os"
 )
 
 // Resources
@@ -67,6 +70,7 @@ type FINF_BFFNT struct { //  Offset  Size  Description
 }
 
 func (finf *FINF_BFFNT) decode(raw []byte) {
+	// Version 4 (BFFNT)
 	finf.MagicHeader = string(raw[0:4])
 	finf.SectionSize = binary.BigEndian.Uint32(raw[4:])
 	finf.FontType = raw[8] // byte == uint8
@@ -104,7 +108,9 @@ type TGLP_BFFNT struct { //    Offset  Size  Description
 	SheetDataOffset  uint32 // 0x1C    0x04  Sheet Data Offset
 }
 
-func (tglp *TGLP_BFFNT) decode(raw []byte) {
+func (tglp *TGLP_BFFNT) decode(tglpRaw []byte, allRaw []byte) {
+	raw := tglpRaw
+	// Version 4 (BFFNT)
 	tglp.MagicHeader = string(raw[0:4])
 	tglp.SectionSize = binary.BigEndian.Uint32(raw[4:])
 	tglp.CellWidth = raw[8] // byte == uint8
@@ -112,13 +118,60 @@ func (tglp *TGLP_BFFNT) decode(raw []byte) {
 	tglp.NumOfSheets = raw[10]
 	tglp.MaxCharWidth = raw[11]
 	tglp.SheetSize = binary.BigEndian.Uint32(raw[12:])
-	tglp.BaselinePosition = binary.BigEndian.Uint16(raw[12:])
-	tglp.SheetImageFormat = binary.BigEndian.Uint16(raw[14:])
-	tglp.NumOfColumns = binary.BigEndian.Uint16(raw[16:])
-	tglp.NumOfRows = binary.BigEndian.Uint16(raw[18:])
-	tglp.SheetWidth = binary.BigEndian.Uint16(raw[20:])
-	tglp.SheetHeight = binary.BigEndian.Uint16(raw[22:])
-	tglp.SheetDataOffset = binary.BigEndian.Uint32(raw[24:])
+	tglp.BaselinePosition = binary.BigEndian.Uint16(raw[16:])
+	tglp.SheetImageFormat = binary.BigEndian.Uint16(raw[18:])
+	tglp.NumOfColumns = binary.BigEndian.Uint16(raw[20:])
+	tglp.NumOfRows = binary.BigEndian.Uint16(raw[22:])
+	tglp.SheetWidth = binary.BigEndian.Uint16(raw[24:])
+	tglp.SheetHeight = binary.BigEndian.Uint16(raw[26:])
+	tglp.SheetDataOffset = binary.BigEndian.Uint32(raw[28:])
+
+	start := tglp.SheetDataOffset
+	end := tglp.SheetDataOffset + tglp.SheetSize
+
+	// the data is in some form of Gx2 data?
+
+	alphaImg := image.Alpha{
+		Pix: allRaw[start:end],
+		// TODO: int conversion should end with a positive number
+		Stride: int(tglp.SheetWidth),
+		Rect:   image.Rect(0, 0, int(tglp.SheetWidth), int(tglp.SheetHeight)),
+	}
+	f, err := os.Create("outimage.png")
+	handleErr(err)
+	defer f.Close()
+
+	// Encode to `PNG` with `DefaultCompression` level
+	// then save to file
+	err = png.Encode(f, alphaImg.SubImage(alphaImg.Rect))
+	handleErr(err)
+
+	// // Attempting to encode a single image
+	// charBuf := make([]byte, 24*30)
+	// pos := int(start + 240)
+	// ii := 0
+	// for i := 0; i < 30; i++ {
+	// 	for j := 0; j < 24; j++ {
+	// 		charBuf[ii] = allRaw[pos+i]
+	// 		ii++
+	// 	}
+	// 	pos += 488
+	// }
+
+	// charImg := image.Alpha{
+	// 	Pix:    charBuf,
+	// 	Stride: 24,
+	// 	Rect:   image.Rect(0, 0, 24, 30),
+	// }
+
+	// f, err := os.Create("outimage.png")
+	// handleErr(err)
+	// defer f.Close()
+
+	// // Encode to `PNG` with `DefaultCompression` level
+	// // then save to file
+	// err = png.Encode(f, charImg.SubImage(image.Rect(0, 0, 24, 30)))
+	// handleErr(err)
 
 	fmt.Println("TGLP Header")
 	pprint(tglp)
@@ -200,7 +253,7 @@ func main() {
 	finf.decode(rawBytes[20:52])
 
 	var tglp TGLP_BFFNT
-	tglp.decode(rawBytes[52:84])
+	tglp.decode(rawBytes[52:100], rawBytes)
 
 	var cwdh CWDH
 	// CWDHOffset skips the first 8 bytes that contain the CWDH Magic Header
