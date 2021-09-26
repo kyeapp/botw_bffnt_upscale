@@ -8,6 +8,8 @@ import (
 	"image/png"
 	"io/ioutil"
 	"os"
+
+	"github.com/disintegration/imaging"
 )
 
 // Resources
@@ -126,55 +128,160 @@ func (tglp *TGLP_BFFNT) decode(tglpRaw []byte, allRaw []byte) {
 	tglp.SheetHeight = binary.BigEndian.Uint16(raw[26:])
 	tglp.SheetDataOffset = binary.BigEndian.Uint32(raw[28:])
 
+	//DECODE IMAGE===========================================================
 	start := tglp.SheetDataOffset
 	end := tglp.SheetDataOffset + tglp.SheetSize
-
-	// the data is in some form of Gx2 data?
+	data := allRaw[start:end]
 
 	alphaImg := image.Alpha{
-		Pix: allRaw[start:end],
+		Pix: data,
 		// TODO: int conversion should end with a positive number
 		Stride: int(tglp.SheetWidth),
 		Rect:   image.Rect(0, 0, int(tglp.SheetWidth), int(tglp.SheetHeight)),
 	}
+
+	sheetW := int(tglp.wdtih)
+	bytesPerPixel := 1 // TODO general pixel decoding for images that are encoded with 4 bytes PerPixel RGBA
+
+	// Copied from KillzXGaming/Switch-Toolbox
+	// Iterate through every pixel
+	// Assumes only 1 byte per pixel (alpha only image)
+	result := make([]bytes, int(tglp.SheetSize))
+	swizzle := 1
+
+	for y := 0; y < int(tglp.height); y++ {
+		for x := 0; x < sheetW; x++ {
+			pixelIndex := (y*sheetW + x) * bytesPerPixel
+			swizzledPixelIndex := computeSwizzledPixelIndex()
+
+			if swizzle {
+				result[pixelIndex] = data[swizzledPixelIndex]
+			} else {
+				// deswizzle image
+				result[swizzledPixelIndex] = data[pixelIndex]
+			}
+		}
+	}
+
+	// TODO rework this to use custom horizontal flip
+	imgFlipped := imaging.FlipV(alphaImg)
+
+	// convert back into an alpha pic
+	buf := make([]uint8, tglp.SheetSize)
+	for i := 0; i < tglp.SheetSize; i += 4 {
+		alphaImg.Pix[i] = imgFlipped.Pix[i+3]
+	}
+
 	f, err := os.Create("outimage.png")
 	handleErr(err)
 	defer f.Close()
 
 	// Encode to `PNG` with `DefaultCompression` level
 	// then save to file
-	err = png.Encode(f, alphaImg.SubImage(alphaImg.Rect))
+	err = png.Encode(f, alphaImg)
 	handleErr(err)
-
-	// // Attempting to encode a single image
-	// charBuf := make([]byte, 24*30)
-	// pos := int(start + 240)
-	// ii := 0
-	// for i := 0; i < 30; i++ {
-	// 	for j := 0; j < 24; j++ {
-	// 		charBuf[ii] = allRaw[pos+i]
-	// 		ii++
-	// 	}
-	// 	pos += 488
-	// }
-
-	// charImg := image.Alpha{
-	// 	Pix:    charBuf,
-	// 	Stride: 24,
-	// 	Rect:   image.Rect(0, 0, 24, 30),
-	// }
-
-	// f, err := os.Create("outimage.png")
-	// handleErr(err)
-	// defer f.Close()
-
-	// // Encode to `PNG` with `DefaultCompression` level
-	// // then save to file
-	// err = png.Encode(f, charImg.SubImage(image.Rect(0, 0, 24, 30)))
-	// handleErr(err)
+	//==================================================================================
 
 	fmt.Println("TGLP Header")
 	pprint(tglp)
+}
+
+// computeSurfaceAddrFromCoordMacroTiled
+func computeSwizzledPixelIndex(x uint, y uint, sample uint, pitch uint, height uint, tileMode AddrTileMode, pipSwizzle uint, backupSwizzle uint) uint {
+
+	// var microTileThickness uint = computeSurfaceThickness(tileMode)
+	var microTileThickness uint = 1
+
+	var microTileBits uint = numSamples * bitsPerPixel * (microTileThickness * 64)
+	var microTileBytes uint = (microTileBits + 7) / 8
+
+	var pixelIndex uint = computePixelIndexWithinMicroTile(x, y, slice, bitsPerPixel, tileMode, IsDepth)
+	var bytesPerSample uint = microTileBytes / numSamples
+	var sampleOffset uint = 0
+	var pixelOffset uint = 0
+	var samplesPerSlice uint = 0
+	var numSampleSplits uint = 0
+	var sampleSlice uint = 0
+
+	if hasDepth {
+		sampleOffset = bitsPerPixel * sample
+		pixelOffset = numSamples * bitsPerPixel * pixelIndex
+	} else {
+		sampleOffset = sample * (microTileBits / numSamples)
+		pixelOffset = bitsPerPixel * pixelIndex
+	}
+
+	elemOffset := pixelOffset + sampleOffset
+
+	if numSamples <= 1 || microTileBytes <= 2048 {
+		samplesPerSlice = numSamples
+		numSampleSplits = 1
+		sampleSlice = 0
+	} else {
+		samplesPerSlice = 2048 / bytesPerSample
+		numSampleSplits = numSamples / samplesPerSlice
+		numSamples = samplesPerSlice
+
+		var tileSliceBits uint = microTileBits / numSampleSplits
+		sampleSlice = elemOffset / tileSliceBits
+		elemOffset %= tileSliceBits
+	}
+
+	elemOffset = (elemOffset + 7) / 8
+
+	var pipe uint = computePipeFromCoordWoRotation(x, y)
+	var bank uint = computeBankFromCoordWoRotation(x, y)
+
+	var swizzle_ uint = pipeSwizzle + 2*bankSwizzle
+	var bankPipe uint = pipe + 2*bank
+	var rotation uint = computeSurfaceRotationFromTileMode(tileMode)
+	var sliceIn uint = slice
+
+	if isThickMacroTiled(tileMode) != 0 {
+		sliceIn >>= 2
+	}
+
+	bankPipe ^= 2*sampleSlice*3 ^ (swizzle_ + sliceIn*rotation)
+	bankPipe %= 8
+
+	pipe = bankPipe % 2
+	bank = bankPipe / 2
+
+	var sliceBytes uint = (height*pitch*microTileThickness*bitsPerPixel*numSamples + 7) / 8
+	var sliceOffset uint = sliceBytes * (sampleSlice + numSampleSplits*slice) / microTileThickness
+
+	var macroTilePitch uint = 32
+	var macroTileHeight uint = 16
+
+	switch tileMode {
+	case AddrTileMode.ADDR_TM_2D_TILED_THIN2:
+	case AddrTileMode.ADDR_TM_2B_TILED_THIN2:
+		macroTilePitch = 16
+		macroTileHeight = 32
+		break
+	case AddrTileMode.ADDR_TM_2D_TILED_THIN4:
+	case AddrTileMode.ADDR_TM_2B_TILED_THIN4:
+		macroTilePitch = 8
+		macroTileHeight = 64
+		break
+	}
+
+	var macroTilesPerRow uint = pitch / macroTilePitch
+	var macroTileBytes uint = (numSamples*microTileThickness*bitsPerPixel*macroTileHeight*macroTilePitch + 7) / 8
+	var macroTileIndexX uint = x / macroTilePitch
+	var macroTileIndexY uint = y / macroTileHeight
+	var macroTileOffset uint = (macroTileIndexX + macroTilesPerRow*macroTileIndexY) * macroTileBytes
+
+	if isBankSwappedTileMode(tileMode) != 0 {
+		var bankSwapWidth uint = computeSurfaceBankSwappedWidth(tileMode, bitsPerPixel, 1, pitch)
+		var swapIndex uint = macroTilePitch * macroTileIndexX / bankSwapWidth
+		bank ^= bankSwapOrder[swapIndex&3]
+	}
+
+	var totalOffset uint = elemOffset + ((macroTileOffset + sliceOffset) >> 3)
+	res := bank<<9 || pipe<<8 || totalOffset&255 || (uint)((int)(totalOffset)&-256)<<3
+
+	return res
 }
 
 type CWDH struct { //           Offset  Size                             Description
