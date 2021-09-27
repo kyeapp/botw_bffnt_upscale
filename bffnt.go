@@ -8,6 +8,8 @@ import (
 	"image/png"
 	"io/ioutil"
 	"os"
+
+	"github.com/disintegration/imaging"
 )
 
 // Resources
@@ -69,7 +71,7 @@ func (cfnt *CFNT) decode(raw []byte) {
 	cfnt.BlockReadNum = binary.BigEndian.Uint32(raw[16:])
 
 	if cfnt.Endianness != "FEFF" {
-		panic("only little endian is supported")
+		panic("big endian not supported")
 	}
 
 	fmt.Println("CFNT Header")
@@ -153,6 +155,7 @@ func (tglp *TGLP_BFFNT) decode(tglpRaw []byte, allRaw []byte) {
 
 	fmt.Println("TGLP Header")
 	pprint(tglp)
+
 	//DECODE IMAGE===========================================================
 	start := tglp.SheetDataOffset
 	end := tglp.SheetDataOffset + tglp.SheetSize
@@ -178,13 +181,13 @@ func (tglp *TGLP_BFFNT) decode(tglpRaw []byte, allRaw []byte) {
 		Stride: int(tglp.SheetWidth),
 		Rect:   image.Rect(0, 0, int(tglp.SheetWidth), int(tglp.SheetHeight)),
 	}
-	// imgFlipped := imaging.FlipV(alphaImg)
 
-	// // convert back into an alpha pic
-	// buf := make([]uint8, tglp.SheetSize)
-	// for i := 0; i < tglp.SheetSize; i += 4 {
-	// 	alphaImg.Pix[i] = imgFlipped.Pix[i+3]
-	// }
+	imgFlipped := imaging.FlipV(alphaImg.SubImage(alphaImg.Rect))
+
+	// convert back into alphaImg
+	for i := uint32(0); i < tglp.SheetSize; i++ {
+		alphaImg.Pix[i] = imgFlipped.Pix[4*i+3]
+	}
 
 	f, err := os.Create("outimage.png")
 	handleErr(err)
@@ -195,7 +198,6 @@ func (tglp *TGLP_BFFNT) decode(tglpRaw []byte, allRaw []byte) {
 	err = png.Encode(f, alphaImg.SubImage(alphaImg.Rect))
 	handleErr(err)
 	//==================================================================================
-
 }
 
 func deswizzle(width uint, height uint, depth uint, height_ uint, format uint, aa uint, use uint, tileMode uint, swizzle_ uint, pitch uint, bpp uint, slice uint, sample uint, data []byte) []byte {
@@ -250,15 +252,13 @@ func swizzleSurface(width uint, height uint, depth uint, format uint, aa uint, u
 
 			var pixelIndex uint = (y*width + x) * bytesPerPixel
 			dataLen := (uint)(len(data))
-			inBound := pixelIndex+bytesPerPixel <= dataLen && swizzledPixelIndex+bytesPerPixel <= dataLen
-			if inBound {
+			if pixelIndex+bytesPerPixel <= dataLen && swizzledPixelIndex+bytesPerPixel <= dataLen {
 				if swizzle {
-					ss := data[swizzledPixelIndex]
-					result[pixelIndex] = ss
-					// result[pixelIndex] = data[swizzledPixelIndex]
-
-				} else {
+					// swizzle
 					result[swizzledPixelIndex] = data[pixelIndex]
+				} else {
+					// deswizzle
+					result[pixelIndex] = data[swizzledPixelIndex]
 				}
 			}
 		}
@@ -336,22 +336,7 @@ func computeSwizzledPixelIndex(x uint, y uint, bpp uint, pitch uint, height uint
 	var sliceBytes uint = (height*pitch*microTileThickness*bpp*numSamples + 7) / 8
 	var sliceOffset uint = sliceBytes * (sampleSlice + numSampleSplits*slice) / microTileThickness
 
-	var macroTilePitch uint = 32
-	var macroTileHeight uint = 16
-	switch tileMode {
-	case ADDR_TM_2D_TILED_THIN2:
-		fallthrough
-	case ADDR_TM_2B_TILED_THIN2:
-		macroTilePitch = 16
-		macroTileHeight = 32
-		break
-	case ADDR_TM_2D_TILED_THIN4:
-		fallthrough
-	case ADDR_TM_2B_TILED_THIN4:
-		macroTilePitch = 8
-		macroTileHeight = 64
-		break
-	}
+	macroTilePitch, macroTileHeight := computeMacroPitchAndHeight(tileMode)
 
 	var macroTilesPerRow uint = pitch / macroTilePitch
 	var macroTileBytes uint = (numSamples*microTileThickness*bpp*macroTileHeight*macroTilePitch + 7) / 8
@@ -532,6 +517,28 @@ func isThickMacroTiled(tileMode AddrTileMode) uint {
 	}
 }
 
+func computeMacroPitchAndHeight(tileMode AddrTileMode) (pitch uint, height uint) {
+	var macroTilePitch uint = 32
+	var macroTileHeight uint = 16
+
+	switch tileMode {
+	case ADDR_TM_2D_TILED_THIN2:
+		fallthrough
+	case ADDR_TM_2B_TILED_THIN2:
+		macroTilePitch = 16
+		macroTileHeight = 32
+		break
+	case ADDR_TM_2D_TILED_THIN4:
+		fallthrough
+	case ADDR_TM_2B_TILED_THIN4:
+		macroTilePitch = 8
+		macroTileHeight = 64
+		break
+	}
+
+	return macroTilePitch, macroTileHeight
+}
+
 type CWDH struct { //           Offset  Size                             Description
 	MagicHeader string //       0x00    0x04                             Magic Header (CWDH)
 	SectionSize uint32 //       0x04    0x04                             Section Size
@@ -580,17 +587,73 @@ type CMAP struct { //         Offset  Size  Description
 	NextCMAPOffset  uint32 // 0x10    0x04  Next CMAP Offset
 }
 
-func (cmap *CMAP) decode(raw []byte) {
+const (
+	Direct uint16 = 0
+	Table  uint16 = 1
+	Scan   uint16 = 2
+)
+
+func (cmap *CMAP) decode(allRaw []byte, offset uint32) []CMAP {
+	raw := allRaw[offset:]
 	cmap.MagicHeader = string(raw[0:4])
 	cmap.SectionSize = binary.BigEndian.Uint32(raw[4:])
 	cmap.CodeBegin = binary.BigEndian.Uint16(raw[8:])
 	cmap.CodeEnd = binary.BigEndian.Uint16(raw[10:])
+	// TODO: put mapping into its own type. it would be easier to read case statements.
 	cmap.MappingMethod = binary.BigEndian.Uint16(raw[12:])
 	cmap.UnknownReserved = binary.BigEndian.Uint16(raw[14:])
 	cmap.NextCMAPOffset = binary.BigEndian.Uint32(raw[16:])
 
 	fmt.Println("CMAP Header")
 	pprint(cmap)
+
+	// TODO sectionsize verification
+
+	// direct mapping is used if all the characters in the range are used. The
+	// reserved data is characterOffset. Character offset is needed if the
+	// direct map is not the first map to be read. Instead of storing an array
+	// of the character's index, we can save (CodeEnd - CodeStart + 1) uint16s
+	// worth of bytes by just storing an offset and calculating the index. With
+	// each new character in a direct character map, the character's index is
+	// incremented by 1. The character offset should be equal to the total
+	// number of characters read in from the previous CMAPs.
+	switch cmap.MappingMethod {
+	case 0: //direct mapping
+		characterOffset := cmap.UnknownReserved
+		for i := cmap.CodeBegin; i <= cmap.CodeEnd; i++ {
+			charIdx := i - cmap.CodeBegin + characterOffset
+			fmt.Printf("direct %c %d\n", rune(i), charIdx)
+		}
+		break
+
+	// table mapping is used when there are unused characters in the range of
+	// characters the next (CodeEnd - CodeStart + 1) amount of bytes. An arrray
+	// of index that starts after the cmap header is included. Unused
+	// characters will have an index of MaxUint16 (65535).
+	case 1: //table maping
+		cmapIndex := 20
+		for i := cmap.CodeBegin; i <= cmap.CodeEnd; i++ {
+			charIdx := binary.BigEndian.Uint16(raw[cmapIndex:])
+			if charIdx != 65535 { // math.MaxUint16
+				fmt.Printf("table %#U %d\n", rune(i), charIdx)
+			}
+			cmapIndex += 2
+		}
+		break
+
+	case 2: //scan
+		break
+	default:
+		panic("unknown mapping method")
+	}
+
+	if cmap.NextCMAPOffset == 0 {
+		return nil
+	}
+
+	cmap.decode(allRaw, cmap.NextCMAPOffset-8)
+
+	return nil
 }
 
 // This BFFNT file is Breath of the Wild's NormalS_00.bffnt. The goal of the
@@ -610,11 +673,12 @@ func main() {
 	var tglp TGLP_BFFNT
 	tglp.decode(rawBytes[52:84], rawBytes)
 
+	var cmap CMAP
+	// // CMAPOffset skips the first 8 bytes that contain the CMAP Magic Header
+	cmap.decode(rawBytes, finf.CMAPOffset-8)
+
 	// var cwdh CWDH
 	// // CWDHOffset skips the first 8 bytes that contain the CWDH Magic Header
 	// cwdh.decode(rawBytes[finf.CWDHOffset-8:])
 
-	// var cmap CMAP
-	// // CMAPOffset skips the first 8 bytes that contain the CWDH Magic Header
-	// cmap.decode(rawBytes[finf.CMAPOffset-8:])
 }
