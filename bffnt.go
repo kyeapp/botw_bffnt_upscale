@@ -540,17 +540,14 @@ func computeMacroPitchAndHeight(tileMode AddrTileMode) (pitch uint, height uint)
 }
 
 type CWDH struct { //           Offset  Size                             Description
-	MagicHeader string //       0x00    0x04                             Magic Header (CWDH)
-	SectionSize uint32 //       0x04    0x04                             Section Size
-	// StartIndex     uint16 // 0x08    0x02                             Start Index
-	// EndIndex       uint16 // 0x0A    0x02                             End Index
-	// NextCDWHOffset uint32 // 0x0C    0x04                             Next CWDH Offset
+	MagicHeader    string //       0x00    0x04                             Magic Header (CWDH)
+	SectionSize    uint32 //       0x04    0x04                             Section Size
+	StartIndex     uint16 // 0x08    0x02                             Start Index
+	EndIndex       uint16 // 0x0A    0x02                             End Index
+	NextCWDHOffset uint32 // 0x0C    0x04                             Next CWDH Offset
 	// LeftWidth      uint8  // 0x10    3 * (EndIndex - StartIndex + 1)  Char Widths (3 bytes: Left, Glyph Width, Char Width)
 	// GlyphWidth     uint8
 	// CharWidth      uint8
-
-	// First glyph included to keep things in line with the documentation
-	glyphInfo
 }
 
 type glyphInfo struct {
@@ -568,12 +565,19 @@ func (cwdh *CWDH) decode(raw []byte) []glyphInfo {
 	cwdh.StartIndex = binary.BigEndian.Uint16(raw[8:])
 	cwdh.EndIndex = binary.BigEndian.Uint16(raw[10:])
 	cwdh.NextCWDHOffset = binary.BigEndian.Uint32(raw[12:])
-	cwdh.LeftWidth = raw[16]
-	cwdh.GlyphWidth = raw[17]
-	cwdh.CharWidth = raw[18]
 
 	fmt.Println("CWDH Header")
 	pprint(cwdh)
+
+	var dataOffset uint16 = 16 // cwdh header info is 15 bytes, data starts on the 16th byte
+	for i := cwdh.StartIndex; i <= cwdh.EndIndex; i++ {
+		idx := 3*i + dataOffset
+		leftSpacing := int8(raw[idx])
+		glyphWidth := int8(raw[idx+1])
+		characterWidth := int8(raw[idx+2])
+		fmt.Println(leftSpacing, glyphWidth, characterWidth)
+	}
+
 	return nil
 }
 
@@ -621,28 +625,45 @@ func (cmap *CMAP) decode(allRaw []byte, offset uint32) []CMAP {
 	case 0: //direct mapping
 		characterOffset := cmap.UnknownReserved
 		for i := cmap.CodeBegin; i <= cmap.CodeEnd; i++ {
+			charCode := rune(i)
 			charIdx := i - cmap.CodeBegin + characterOffset
-			fmt.Printf("direct %c %d\n", rune(i), charIdx)
+			fmt.Printf("direct %#U %d\n", charCode, charIdx)
 		}
 		break
 
 	// table mapping is used when there are unused characters in the range of
-	// characters the next (CodeEnd - CodeStart + 1) amount of bytes. An arrray
+	// characters the next (CodeEnd - CodeStart + 1) amount of bytes. An array
 	// of index that starts after the cmap header is included. Unused
 	// characters will have an index of MaxUint16 (65535).
 	case 1: //table maping
 		cmapIndex := 20
 		for i := cmap.CodeBegin; i <= cmap.CodeEnd; i++ {
+			charCode := rune(i)
 			charIdx := binary.BigEndian.Uint16(raw[cmapIndex:])
 			if charIdx != 65535 { // math.MaxUint16
-				fmt.Printf("table %#U %d\n", rune(i), charIdx)
+				fmt.Printf("table %#U %d\n", charCode, charIdx)
 			}
 			cmapIndex += 2
 		}
 		break
 
+	// scan mapping is used for glyph mappings. An array of glyphs and it's
+	// index is included after the header data. The first uint16 is the amount
+	// of glphphs to read. After that the bytes are read in uint16 pairs. Read
+	// a uint16 for the character unicode and then a uint16 for the character
+	// index.
 	case 2: //scan
+		charCount := binary.BigEndian.Uint16(raw[20:])
+
+		cmapIndex := 22
+		for i := uint16(0); i < charCount; i++ {
+			charCode := rune(binary.BigEndian.Uint16(raw[cmapIndex:]))
+			charIdx := binary.BigEndian.Uint16(raw[cmapIndex+2:])
+			fmt.Printf("table %#U %d\n", charCode, charIdx)
+			cmapIndex += 4
+		}
 		break
+
 	default:
 		panic("unknown mapping method")
 	}
@@ -673,12 +694,11 @@ func main() {
 	var tglp TGLP_BFFNT
 	tglp.decode(rawBytes[52:84], rawBytes)
 
-	var cmap CMAP
+	var cwdh CWDH
+	// CWDHOffset skips the first 8 bytes that contain the CWDH Magic Header
+	cwdh.decode(rawBytes[finf.CWDHOffset-8:])
+
 	// // CMAPOffset skips the first 8 bytes that contain the CMAP Magic Header
+	var cmap CMAP
 	cmap.decode(rawBytes, finf.CMAPOffset-8)
-
-	// var cwdh CWDH
-	// // CWDHOffset skips the first 8 bytes that contain the CWDH Magic Header
-	// cwdh.decode(rawBytes[finf.CWDHOffset-8:])
-
 }
