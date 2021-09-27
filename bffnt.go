@@ -8,8 +8,6 @@ import (
 	"image/png"
 	"io/ioutil"
 	"os"
-
-	"github.com/disintegration/imaging"
 )
 
 // Resources
@@ -27,6 +25,31 @@ func pprint(s interface{}) {
 
 	fmt.Printf("%s\n", string(jsonBytes))
 }
+
+type AddrTileMode uint
+
+const (
+	ADDR_TM_LINEAR_GENERAL AddrTileMode = iota
+	ADDR_TM_LINEAR_ALIGNED
+	ADDR_TM_1D_TILED_THIN1
+	ADDR_TM_1D_TILED_THICK
+	ADDR_TM_2D_TILED_THIN1
+	ADDR_TM_2D_TILED_THIN2
+	ADDR_TM_2D_TILED_THIN4
+	ADDR_TM_2D_TILED_THICK
+	ADDR_TM_2B_TILED_THIN1
+	ADDR_TM_2B_TILED_THIN2
+	ADDR_TM_2B_TILED_THIN4
+	ADDR_TM_2B_TILED_THICK
+	ADDR_TM_3D_TILED_THIN1
+	ADDR_TM_3D_TILED_THICK
+	ADDR_TM_3B_TILED_THIN1
+	ADDR_TM_3B_TILED_THICK
+	ADDR_TM_2D_TILED_XTHICK
+	ADDR_TM_3D_TILED_XTHICK
+	ADDR_TM_POWER_SAVE
+	ADDR_TM_COUNT
+)
 
 type CFNT struct { //       Offset  Size  Description
 	MagicHeader   string // 0x00    0x04  Magic Header (either CFNT or CFNU or FFNT)
@@ -128,49 +151,40 @@ func (tglp *TGLP_BFFNT) decode(tglpRaw []byte, allRaw []byte) {
 	tglp.SheetHeight = binary.BigEndian.Uint16(raw[26:])
 	tglp.SheetDataOffset = binary.BigEndian.Uint32(raw[28:])
 
+	fmt.Println("TGLP Header")
+	pprint(tglp)
 	//DECODE IMAGE===========================================================
 	start := tglp.SheetDataOffset
 	end := tglp.SheetDataOffset + tglp.SheetSize
 	data := allRaw[start:end]
 
+	depth := uint(1)
+	sw := uint(tglp.SheetWidth)
+	sh := uint(tglp.SheetHeight)
+	format_ := uint(1)
+	aa := uint(0)
+	use := uint(2)
+	tileMode := uint(4)
+	swizzle_ := uint(0)
+	bpp := uint(8)
+	slice := uint(0)
+	sample := uint(0)
+	deswizzledImage := deswizzle(sw, sh, depth, sh, format_, aa, use, tileMode, swizzle_, sw, bpp, slice, sample, data)
+
+	// // TODO rework this to use custom horizontal flip
 	alphaImg := image.Alpha{
-		Pix: data,
+		Pix: deswizzledImage,
 		// TODO: int conversion should end with a positive number
 		Stride: int(tglp.SheetWidth),
 		Rect:   image.Rect(0, 0, int(tglp.SheetWidth), int(tglp.SheetHeight)),
 	}
+	// imgFlipped := imaging.FlipV(alphaImg)
 
-	sheetW := int(tglp.wdtih)
-	bytesPerPixel := 1 // TODO general pixel decoding for images that are encoded with 4 bytes PerPixel RGBA
-
-	// Copied from KillzXGaming/Switch-Toolbox
-	// Iterate through every pixel
-	// Assumes only 1 byte per pixel (alpha only image)
-	result := make([]bytes, int(tglp.SheetSize))
-	swizzle := 1
-
-	for y := 0; y < int(tglp.height); y++ {
-		for x := 0; x < sheetW; x++ {
-			pixelIndex := (y*sheetW + x) * bytesPerPixel
-			swizzledPixelIndex := computeSwizzledPixelIndex()
-
-			if swizzle {
-				result[pixelIndex] = data[swizzledPixelIndex]
-			} else {
-				// deswizzle image
-				result[swizzledPixelIndex] = data[pixelIndex]
-			}
-		}
-	}
-
-	// TODO rework this to use custom horizontal flip
-	imgFlipped := imaging.FlipV(alphaImg)
-
-	// convert back into an alpha pic
-	buf := make([]uint8, tglp.SheetSize)
-	for i := 0; i < tglp.SheetSize; i += 4 {
-		alphaImg.Pix[i] = imgFlipped.Pix[i+3]
-	}
+	// // convert back into an alpha pic
+	// buf := make([]uint8, tglp.SheetSize)
+	// for i := 0; i < tglp.SheetSize; i += 4 {
+	// 	alphaImg.Pix[i] = imgFlipped.Pix[i+3]
+	// }
 
 	f, err := os.Create("outimage.png")
 	handleErr(err)
@@ -178,24 +192,96 @@ func (tglp *TGLP_BFFNT) decode(tglpRaw []byte, allRaw []byte) {
 
 	// Encode to `PNG` with `DefaultCompression` level
 	// then save to file
-	err = png.Encode(f, alphaImg)
+	err = png.Encode(f, alphaImg.SubImage(alphaImg.Rect))
 	handleErr(err)
 	//==================================================================================
 
-	fmt.Println("TGLP Header")
-	pprint(tglp)
 }
 
-// computeSurfaceAddrFromCoordMacroTiled
-func computeSwizzledPixelIndex(x uint, y uint, sample uint, pitch uint, height uint, tileMode AddrTileMode, pipSwizzle uint, backupSwizzle uint) uint {
+func deswizzle(width uint, height uint, depth uint, height_ uint, format uint, aa uint, use uint, tileMode uint, swizzle_ uint, pitch uint, bpp uint, slice uint, sample uint, data []byte) []byte {
+	return swizzleSurface(width, height, depth, format, aa, use, tileMode, swizzle_, pitch, bpp, slice, sample, data, false)
+}
+func swizzle(width uint, height uint, depth uint, height_ uint, format uint, aa uint, use uint, tileMode uint, swizzle_ uint, pitch uint, bpp uint, slice uint, sample uint, byte, data []byte) []byte {
+	return swizzleSurface(width, height, depth, format, aa, use, tileMode, swizzle_, pitch, bpp, slice, sample, data, true)
+}
 
-	// var microTileThickness uint = computeSurfaceThickness(tileMode)
-	var microTileThickness uint = 1
+// Copied from KillzXGaming/Switch-Toolbox
+func swizzleSurface(width uint, height uint, depth uint, format uint, aa uint, use uint, tileMode uint, swizzle_ uint, pitch uint, bpp uint, slice uint, sample uint, data []byte, swizzle bool) []byte {
+	var bytesPerPixel uint = bpp / 8
+	result := make([]byte, len(data))
 
-	var microTileBits uint = numSamples * bitsPerPixel * (microTileThickness * 64)
+	// uint pipeSwizzle, bankSwizzle, pos_;
+	// ulong pos;
+
+	// if (IsFormatBCN((GX2SurfaceFormat)format))
+	// {
+	//     width = (width + 3) / 4;
+	//     height = (height + 3) / 4;
+	// }
+
+	// pipeSwizzle = (swizzle_ >> 8) & 1;
+	// bankSwizzle = (swizzle_ >> 9) & 3;
+
+	// if (depth > 1)
+	// {
+	// //     bankSwizzle = (uint)(slice % 4);
+	// }
+
+	// tileMode = GX2TileModeToAddrTileMode(tileMode);
+
+	// var IsDepth bool = (use & 4) != 0
+	isDepth := false
+	// var numSamples uint = (uint)(1 << (int)(aa))
+
+	var swizzledPixelIndex uint
+
+	for y := uint(0); y < height; y++ {
+		for x := uint(0); x < width; x++ {
+			// if tileMode == 0 || tileMode == 1 {
+			// 	pos = computeSurfaceAddrFromCoordLinear((uint)x, (uint)y, slice, sample, bytesPerPixel, pitch, height, depth);
+			// 	panic("unsupported tile mode")
+			// } else if tileMode == 2 || tileMode == 3 {
+			// 	pos = computeSurfaceAddrFromCoordMicroTiled((uint)x, (uint)y, slice, bpp, pitch, height, (AddrTileMode)tileMode, IsDepth);
+			// 	panic("unsupported tile mode")
+			// } else {
+			// 	pos = computeSurfaceAddrFromCoordMacroTiled((uint)x, (uint)y, slice, sample, bpp, pitch, height, numSamples, (AddrTileMode)tileMode, IsDepth, pipeSwizzle, bankSwizzle);
+			swizzledPixelIndex = computeSwizzledPixelIndex(x, y, bpp, pitch, height, ADDR_TM_2D_TILED_THIN1, isDepth)
+			// }
+
+			var pixelIndex uint = (y*width + x) * bytesPerPixel
+			dataLen := (uint)(len(data))
+			inBound := pixelIndex+bytesPerPixel <= dataLen && swizzledPixelIndex+bytesPerPixel <= dataLen
+			if inBound {
+				if swizzle {
+					ss := data[swizzledPixelIndex]
+					result[pixelIndex] = ss
+					// result[pixelIndex] = data[swizzledPixelIndex]
+
+				} else {
+					result[swizzledPixelIndex] = data[pixelIndex]
+				}
+			}
+		}
+	}
+
+	return result
+}
+
+// computeSurfaceAddrFromCoordMacroTiled(uint x, uint y, uint slice, uint
+// sample, uint bpp, uint pitch, uint height, uint numSamples, AddrTileMode
+// tileMode, bool IsDepth, uint pipeSwizzle, uint bankSwizzle)
+func computeSwizzledPixelIndex(x uint, y uint, bpp uint, pitch uint, height uint, tileMode AddrTileMode, isDepth bool) uint {
+	var pipeSwizzle uint = 0
+	var bankSwizzle uint = 0
+	var numSamples uint = 1
+	var sample uint = 0
+	var slice uint = 0
+	var microTileThickness uint = computeSurfaceThickness(tileMode)
+
+	var microTileBits uint = numSamples * bpp * (microTileThickness * 64)
 	var microTileBytes uint = (microTileBits + 7) / 8
 
-	var pixelIndex uint = computePixelIndexWithinMicroTile(x, y, slice, bitsPerPixel, tileMode, IsDepth)
+	var pixelIndex uint = computePixelIndexWithinMicroTile(x, y, slice, bpp, tileMode, isDepth)
 	var bytesPerSample uint = microTileBytes / numSamples
 	var sampleOffset uint = 0
 	var pixelOffset uint = 0
@@ -203,13 +289,13 @@ func computeSwizzledPixelIndex(x uint, y uint, sample uint, pitch uint, height u
 	var numSampleSplits uint = 0
 	var sampleSlice uint = 0
 
-	if hasDepth {
-		sampleOffset = bitsPerPixel * sample
-		pixelOffset = numSamples * bitsPerPixel * pixelIndex
-	} else {
-		sampleOffset = sample * (microTileBits / numSamples)
-		pixelOffset = bitsPerPixel * pixelIndex
-	}
+	// if hasDepth {
+	// 	sampleOffset = bpp * sample
+	// 	pixelOffset = numSamples * bpp * pixelIndex
+	// } else {
+	sampleOffset = sample * (microTileBits / numSamples)
+	pixelOffset = bpp * pixelIndex
+	// }
 
 	elemOffset := pixelOffset + sampleOffset
 
@@ -247,41 +333,203 @@ func computeSwizzledPixelIndex(x uint, y uint, sample uint, pitch uint, height u
 	pipe = bankPipe % 2
 	bank = bankPipe / 2
 
-	var sliceBytes uint = (height*pitch*microTileThickness*bitsPerPixel*numSamples + 7) / 8
+	var sliceBytes uint = (height*pitch*microTileThickness*bpp*numSamples + 7) / 8
 	var sliceOffset uint = sliceBytes * (sampleSlice + numSampleSplits*slice) / microTileThickness
 
 	var macroTilePitch uint = 32
 	var macroTileHeight uint = 16
-
 	switch tileMode {
-	case AddrTileMode.ADDR_TM_2D_TILED_THIN2:
-	case AddrTileMode.ADDR_TM_2B_TILED_THIN2:
+	case ADDR_TM_2D_TILED_THIN2:
+		fallthrough
+	case ADDR_TM_2B_TILED_THIN2:
 		macroTilePitch = 16
 		macroTileHeight = 32
 		break
-	case AddrTileMode.ADDR_TM_2D_TILED_THIN4:
-	case AddrTileMode.ADDR_TM_2B_TILED_THIN4:
+	case ADDR_TM_2D_TILED_THIN4:
+		fallthrough
+	case ADDR_TM_2B_TILED_THIN4:
 		macroTilePitch = 8
 		macroTileHeight = 64
 		break
 	}
 
 	var macroTilesPerRow uint = pitch / macroTilePitch
-	var macroTileBytes uint = (numSamples*microTileThickness*bitsPerPixel*macroTileHeight*macroTilePitch + 7) / 8
+	var macroTileBytes uint = (numSamples*microTileThickness*bpp*macroTileHeight*macroTilePitch + 7) / 8
 	var macroTileIndexX uint = x / macroTilePitch
 	var macroTileIndexY uint = y / macroTileHeight
 	var macroTileOffset uint = (macroTileIndexX + macroTilesPerRow*macroTileIndexY) * macroTileBytes
 
-	if isBankSwappedTileMode(tileMode) != 0 {
-		var bankSwapWidth uint = computeSurfaceBankSwappedWidth(tileMode, bitsPerPixel, 1, pitch)
-		var swapIndex uint = macroTilePitch * macroTileIndexX / bankSwapWidth
-		bank ^= bankSwapOrder[swapIndex&3]
-	}
+	// if isBankSwappedTileMode(tileMode) != 0 {
+	// 	var bankSwapWidth uint = computeSurfaceBankSwappedWidth(tileMode, bpp, 1, pitch)
+	// 	var swapIndex uint = macroTilePitch * macroTileIndexX / bankSwapWidth
+	// 	bank ^= bankSwapOrder[swapIndex&3]
+	// }
 
 	var totalOffset uint = elemOffset + ((macroTileOffset + sliceOffset) >> 3)
-	res := bank<<9 || pipe<<8 || totalOffset&255 || (uint)((int)(totalOffset)&-256)<<3
+	res := bank<<9 | pipe<<8 | totalOffset&255 | (uint)((int)(totalOffset)&-256)<<3
 
 	return res
+}
+
+func computePixelIndexWithinMicroTile(x uint, y uint, z uint, bpp uint, tileMode AddrTileMode, isDepth bool) uint {
+	var pixelBit0 uint = 0
+	var pixelBit1 uint = 0
+	var pixelBit2 uint = 0
+	var pixelBit3 uint = 0
+	var pixelBit4 uint = 0
+	var pixelBit5 uint = 0
+	var pixelBit6 uint = 0
+	var pixelBit7 uint = 0
+	var pixelBit8 uint = 0
+	var thickness uint = computeSurfaceThickness(tileMode)
+
+	if isDepth {
+		pixelBit0 = x & 1
+		pixelBit1 = y & 1
+		pixelBit2 = (x & 2) >> 1
+		pixelBit3 = (y & 2) >> 1
+		pixelBit4 = (x & 4) >> 2
+		pixelBit5 = (y & 4) >> 2
+	} else {
+		switch bpp {
+		case 8:
+			pixelBit0 = x & 1
+			pixelBit1 = (x & 2) >> 1
+			pixelBit2 = (x & 4) >> 2
+			pixelBit3 = (y & 2) >> 1
+			pixelBit4 = y & 1
+			pixelBit5 = (y & 4) >> 2
+			break
+		case 0x10:
+			pixelBit0 = x & 1
+			pixelBit1 = (x & 2) >> 1
+			pixelBit2 = (x & 4) >> 2
+			pixelBit3 = y & 1
+			pixelBit4 = (y & 2) >> 1
+			pixelBit5 = (y & 4) >> 2
+			break
+		case 0x20:
+			fallthrough
+		case 0x60:
+			pixelBit0 = x & 1
+			pixelBit1 = (x & 2) >> 1
+			pixelBit2 = y & 1
+			pixelBit3 = (x & 4) >> 2
+			pixelBit4 = (y & 2) >> 1
+			pixelBit5 = (y & 4) >> 2
+			break
+		case 0x40:
+			pixelBit0 = x & 1
+			pixelBit1 = y & 1
+			pixelBit2 = (x & 2) >> 1
+			pixelBit3 = (x & 4) >> 2
+			pixelBit4 = (y & 2) >> 1
+			pixelBit5 = (y & 4) >> 2
+			break
+		case 0x80:
+			pixelBit0 = y & 1
+			pixelBit1 = x & 1
+			pixelBit2 = (x & 2) >> 1
+			pixelBit3 = (x & 4) >> 2
+			pixelBit4 = (y & 2) >> 1
+			pixelBit5 = (y & 4) >> 2
+			break
+		default:
+			pixelBit0 = x & 1
+			pixelBit1 = (x & 2) >> 1
+			pixelBit2 = y & 1
+			pixelBit3 = (x & 4) >> 2
+			pixelBit4 = (y & 2) >> 1
+			pixelBit5 = (y & 4) >> 2
+			break
+		}
+	}
+
+	if thickness > 1 {
+		pixelBit6 = z & 1
+		pixelBit7 = (z & 2) >> 1
+	}
+
+	if thickness == 8 {
+		pixelBit8 = (z & 4) >> 2
+	}
+
+	return (pixelBit8 << 8) | (pixelBit7 << 7) | (pixelBit6 << 6) | 32*pixelBit5 | 16*pixelBit4 | 8*pixelBit3 | 4*pixelBit2 | pixelBit0 | 2*pixelBit1
+}
+
+func computeSurfaceThickness(tileMode AddrTileMode) uint {
+	switch tileMode {
+	case ADDR_TM_1D_TILED_THICK:
+		fallthrough
+	case ADDR_TM_2D_TILED_THICK:
+		fallthrough
+	case ADDR_TM_2B_TILED_THICK:
+		fallthrough
+	case ADDR_TM_3D_TILED_THICK:
+		fallthrough
+	case ADDR_TM_3B_TILED_THICK:
+		return 4
+	case ADDR_TM_2D_TILED_XTHICK:
+		fallthrough
+	case ADDR_TM_3D_TILED_XTHICK:
+		return 8
+	default:
+		return 1
+	}
+}
+
+func computePipeFromCoordWoRotation(x uint, y uint) uint {
+	return ((y >> 3) ^ (x >> 3)) & 1
+}
+
+func computeBankFromCoordWoRotation(x uint, y uint) uint {
+	return ((y>>5)^(x>>3))&1 | 2*(((y>>4)^(x>>4))&1)
+}
+
+func computeSurfaceRotationFromTileMode(tileMode AddrTileMode) uint {
+	switch tileMode {
+	case ADDR_TM_2D_TILED_THIN1:
+		fallthrough
+	case ADDR_TM_2D_TILED_THIN2:
+		fallthrough
+	case ADDR_TM_2D_TILED_THIN4:
+		fallthrough
+	case ADDR_TM_2D_TILED_THICK:
+		fallthrough
+	case ADDR_TM_2B_TILED_THIN1:
+		fallthrough
+	case ADDR_TM_2B_TILED_THIN2:
+		fallthrough
+	case ADDR_TM_2B_TILED_THIN4:
+		fallthrough
+	case ADDR_TM_2B_TILED_THICK:
+		return 2
+	case ADDR_TM_3D_TILED_THIN1:
+		fallthrough
+	case ADDR_TM_3D_TILED_THICK:
+		fallthrough
+	case ADDR_TM_3B_TILED_THIN1:
+		fallthrough
+	case ADDR_TM_3B_TILED_THICK:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func isThickMacroTiled(tileMode AddrTileMode) uint {
+	switch tileMode {
+	case ADDR_TM_2D_TILED_THICK:
+		fallthrough
+	case ADDR_TM_2B_TILED_THICK:
+		fallthrough
+	case ADDR_TM_3D_TILED_THICK:
+		fallthrough
+	case ADDR_TM_3B_TILED_THICK:
+		return 1
+	default:
+		return 0
+	}
 }
 
 type CWDH struct { //           Offset  Size                             Description
@@ -360,13 +608,13 @@ func main() {
 	finf.decode(rawBytes[20:52])
 
 	var tglp TGLP_BFFNT
-	tglp.decode(rawBytes[52:100], rawBytes)
+	tglp.decode(rawBytes[52:84], rawBytes)
 
-	var cwdh CWDH
-	// CWDHOffset skips the first 8 bytes that contain the CWDH Magic Header
-	cwdh.decode(rawBytes[finf.CWDHOffset-8:])
+	// var cwdh CWDH
+	// // CWDHOffset skips the first 8 bytes that contain the CWDH Magic Header
+	// cwdh.decode(rawBytes[finf.CWDHOffset-8:])
 
-	var cmap CMAP
-	// CMAPOffset skips the first 8 bytes that contain the CWDH Magic Header
-	cmap.decode(rawBytes[finf.CMAPOffset-8:])
+	// var cmap CMAP
+	// // CMAPOffset skips the first 8 bytes that contain the CWDH Magic Header
+	// cmap.decode(rawBytes[finf.CMAPOffset-8:])
 }
