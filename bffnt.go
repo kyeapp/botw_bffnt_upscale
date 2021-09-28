@@ -5,21 +5,32 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"image"
-	"image/png"
 	"io/ioutil"
-	"os"
 
 	"github.com/disintegration/imaging"
 )
 
+var debug bool
+
+const (
+	// number of bytes for each header size
+	CFNT_HEADER_SIZE = 20
+	FINF_HEADER_SIZE = 32
+	TGLP_HEADER_SIZE = 32
+	CWDH_HEADER_SIZE = 16
+	CMAP_HEADER_SIZE = 20
+)
+
 // Resources
 // https://www.3dbrew.org/wiki/BCFNT#Version_4_.28BFFNT.29
+// http://wiki.tockdom.com/wiki/BRFNT_(File_Format)
 
-func assertEqual(actual int, expected int) {
-	if actual != expected {
-		panic(fmt.Errorf("Expected %d to be be %d\n", actual, expected))
+func assertEqual(expected int, actual int) {
+	if expected != actual {
+		panic(fmt.Errorf("%d(actual) does not equal %d(expected)\n", actual, expected))
 	}
 }
 
@@ -34,6 +45,10 @@ func pprint(s interface{}) {
 	handleErr(err)
 
 	fmt.Printf("%s\n", string(jsonBytes))
+}
+
+func printDebug(s interface{}, headerStart int, headerEnd int) {
+
 }
 
 type AddrTileMode uint
@@ -71,15 +86,25 @@ type CFNT struct { //       Offset  Size  Description
 }
 
 func (cfnt *CFNT) decode(raw []byte) {
-	cfnt.MagicHeader = string(raw[0:4])
-	cfnt.Endianness = binary.BigEndian.Uint16(raw[4:])
-	cfnt.SectionSize = binary.BigEndian.Uint16(raw[6:])
-	cfnt.Version = binary.BigEndian.Uint32(raw[8:])
-	cfnt.TotalFileSize = binary.BigEndian.Uint32(raw[12:])
-	cfnt.BlockReadNum = binary.BigEndian.Uint32(raw[16:])
+	headerStart := 0
+	headerEnd := headerStart + CFNT_HEADER_SIZE
+	headerRaw := raw[headerStart:headerEnd]
+	assertEqual(CFNT_HEADER_SIZE, len(headerRaw))
 
-	fmt.Println("CFNT Header")
-	pprint(cfnt)
+	cfnt.MagicHeader = string(headerRaw[0:4])
+	cfnt.Endianness = binary.BigEndian.Uint16(headerRaw[4:])
+	cfnt.SectionSize = binary.BigEndian.Uint16(headerRaw[6:])
+	cfnt.Version = binary.BigEndian.Uint32(headerRaw[8:])
+	cfnt.TotalFileSize = binary.BigEndian.Uint32(headerRaw[12:])
+	cfnt.BlockReadNum = binary.BigEndian.Uint32(headerRaw[16:])
+
+	if debug {
+		pprint(cfnt)
+		fmt.Printf("Read section total of %d bytes\n", headerEnd-headerStart)
+		fmt.Println("Byte offsets start(inclusive) to end(exclusive)================")
+		fmt.Printf("header %d(inclusive) to %d(exclusive)\n", headerStart, headerEnd)
+		fmt.Println()
+	}
 }
 
 func (cfnt *CFNT) encode() []byte {
@@ -92,76 +117,143 @@ func (cfnt *CFNT) encode() []byte {
 	_ = binary.Write(w, binary.BigEndian, cfnt.Version)
 	_ = binary.Write(w, binary.BigEndian, cfnt.TotalFileSize)
 	_ = binary.Write(w, binary.BigEndian, cfnt.BlockReadNum)
-
 	w.Flush()
-	fmt.Println(buf.Bytes())
-	assertEqual(len(buf.Bytes()), 20)
 
-	cfnt.decode(buf.Bytes())
-
+	assertEqual(CFNT_HEADER_SIZE, len(buf.Bytes()))
 	return buf.Bytes()
 }
 
 type FINF_BFFNT struct { //  Offset  Size  Description
-	MagicHeader    string // 0x00    0x04  Magic Header (FINF)
-	SectionSize    uint32 // 0x04    0x04  Section Size
-	FontType       uint8  // 0x08    0x01  Font Type
-	Height         uint8  // 0x09    0x01  Height
-	Width          uint8  // 0x0A    0x01  Width
-	Ascent         uint8  // 0x0B    0x01  Ascent
-	LineFeed       uint16 // 0x0C    0x02  Line Feed
-	AlterCharIndex uint16 // 0x0E    0x02  Alter Char Index
-	LeftWidth      uint8  // 0x10    0x03  Default Width (3 bytes: Left, Glyph Width, Char Width)
-	GlyphWidth     uint8
-	CharWidth      uint8
-	Encoding       uint8  // 0x13    0x01  Encoding
-	TGLPOffset     uint32 // 0x14    0x04  TGLP Offset
-	CWDHOffset     uint32 // 0x18    0x04  CWDH Offset
-	CMAPOffset     uint32 // 0x1C    0x04  CMAP Offset
+	MagicHeader       string // 0x00    0x04  Magic Header (FINF)
+	SectionSize       uint32 // 0x04    0x04  Section Size
+	FontType          uint8  // 0x08    0x01  Font Type
+	Height            uint8  // 0x09    0x01  Height
+	Width             uint8  // 0x0A    0x01  Width
+	Ascent            uint8  // 0x0B    0x01  Ascent
+	LineFeed          uint16 // 0x0C    0x02  Line Feed
+	AlterCharIndex    uint16 // 0x0E    0x02  Alter Char Index
+	DefaultLeftWidth  uint8  // 0x10    0x03  Default Width (3 bytes: Left, Glyph Width, Char Width)
+	DefaultGlyphWidth uint8
+	DefaultCharWidth  uint8
+	Encoding          uint8  // 0x13    0x01  Encoding
+	TGLPOffset        uint32 // 0x14    0x04  TGLP Offset
+	CWDHOffset        uint32 // 0x18    0x04  CWDH Offset
+	CMAPOffset        uint32 // 0x1C    0x04  CMAP Offset
 }
 
+// Version 4 (BFFNT)
 func (finf *FINF_BFFNT) decode(raw []byte) {
-	// Version 4 (BFFNT)
-	finf.MagicHeader = string(raw[0:4])
-	finf.SectionSize = binary.BigEndian.Uint32(raw[4:])
-	finf.FontType = raw[8] // byte == uint8
-	finf.Height = raw[9]
-	finf.Width = raw[10]
-	finf.Ascent = raw[11]
-	finf.LineFeed = binary.BigEndian.Uint16(raw[12:])
-	finf.AlterCharIndex = binary.BigEndian.Uint16(raw[14:])
-	finf.LeftWidth = raw[16]
-	finf.GlyphWidth = raw[17]
-	finf.CharWidth = raw[18]
-	finf.Encoding = raw[19]
-	finf.TGLPOffset = binary.BigEndian.Uint32(raw[20:])
-	finf.CWDHOffset = binary.BigEndian.Uint32(raw[24:])
-	finf.CMAPOffset = binary.BigEndian.Uint32(raw[28:])
+	headerStart := CFNT_HEADER_SIZE
+	headerEnd := headerStart + FINF_HEADER_SIZE
+	headerRaw := raw[headerStart:headerEnd]
+	assertEqual(FINF_HEADER_SIZE, len(headerRaw))
 
-	fmt.Println("FINF Header")
-	pprint(finf)
+	finf.MagicHeader = string(headerRaw[0:4])
+	finf.SectionSize = binary.BigEndian.Uint32(headerRaw[4:])
+	finf.FontType = headerRaw[8] // byte == uint8
+	finf.Height = headerRaw[9]
+	finf.Width = headerRaw[10]
+	finf.Ascent = headerRaw[11]
+	finf.LineFeed = binary.BigEndian.Uint16(headerRaw[12:])
+	finf.AlterCharIndex = binary.BigEndian.Uint16(headerRaw[14:])
+	finf.DefaultLeftWidth = headerRaw[16]
+	finf.DefaultGlyphWidth = headerRaw[17]
+	finf.DefaultCharWidth = headerRaw[18]
+	finf.Encoding = headerRaw[19]
+	finf.TGLPOffset = binary.BigEndian.Uint32(headerRaw[20:])
+	finf.CWDHOffset = binary.BigEndian.Uint32(headerRaw[24:])
+	finf.CMAPOffset = binary.BigEndian.Uint32(headerRaw[28:])
+
+	if debug {
+		pprint(finf)
+		fmt.Printf("Read section total of %d bytes\n", headerEnd-headerStart)
+		fmt.Println("Byte offsets start(inclusive) to end(exclusive)================")
+		fmt.Printf("header %d(inclusive) to %d(exclusive)\n", headerStart, headerEnd)
+		fmt.Println()
+	}
+}
+
+func (finf *FINF_BFFNT) encode() []byte {
+	var buf bytes.Buffer
+	w := bufio.NewWriter(&buf)
+
+	_, _ = w.Write([]byte(finf.MagicHeader))
+	_ = binary.Write(w, binary.BigEndian, finf.SectionSize)
+	_ = binary.Write(w, binary.BigEndian, finf.FontType)
+	_ = binary.Write(w, binary.BigEndian, finf.Height)
+	_ = binary.Write(w, binary.BigEndian, finf.Width)
+	_ = binary.Write(w, binary.BigEndian, finf.Ascent)
+	_ = binary.Write(w, binary.BigEndian, finf.LineFeed)
+	_ = binary.Write(w, binary.BigEndian, finf.AlterCharIndex)
+	_ = binary.Write(w, binary.BigEndian, finf.DefaultLeftWidth)
+	_ = binary.Write(w, binary.BigEndian, finf.DefaultGlyphWidth)
+	_ = binary.Write(w, binary.BigEndian, finf.DefaultCharWidth)
+	_ = binary.Write(w, binary.BigEndian, finf.Encoding)
+	_ = binary.Write(w, binary.BigEndian, finf.TGLPOffset)
+	_ = binary.Write(w, binary.BigEndian, finf.CWDHOffset)
+	_ = binary.Write(w, binary.BigEndian, finf.CMAPOffset)
+	w.Flush()
+
+	assertEqual(FINF_HEADER_SIZE, len(buf.Bytes()))
+	return buf.Bytes()
 }
 
 type TGLP_BFFNT struct { //    Offset  Size  Description
-	MagicHeader      string // 0x00    0x04  Magic Header (TGLP)
-	SectionSize      uint32 // 0x04    0x04  Section Size
-	CellWidth        uint8  // 0x08    0x01  Cell Width
-	CellHeight       uint8  // 0x09    0x01  Cell Height
-	NumOfSheets      uint8  // 0x0A    0x01  Number of Sheets
-	MaxCharWidth     uint8  // 0x0B    0x01  Max Character Width
-	SheetSize        uint32 // 0x0C    0x04  Sheet Size
-	BaselinePosition uint16 // 0x10    0x02  Baseline Position
-	SheetImageFormat uint16 // 0x12    0x02  Sheet Image Format 0-13: (RGBA8, RGB8, RGBA5551, RGB565, RGBA4, LA8, HILO8, L8, A8, LA4, L4, A4, ETC1, ETC1A4)
-	NumOfColumns     uint16 // 0x14    0x02  Number of Sheet columns
-	NumOfRows        uint16 // 0x16    0x02  Number of Sheet rows
-	SheetWidth       uint16 // 0x18    0x02  Sheet Width
-	SheetHeight      uint16 // 0x1A    0x02  Sheet Height
-	SheetDataOffset  uint32 // 0x1C    0x04  Sheet Data Offset
+	MagicHeader      string        // 0x00    0x04  Magic Header (TGLP)
+	SectionSize      uint32        // 0x04    0x04  Section Size
+	CellWidth        uint8         // 0x08    0x01  Cell Width
+	CellHeight       uint8         // 0x09    0x01  Cell Height
+	NumOfSheets      uint8         // 0x0A    0x01  Number of Sheets
+	MaxCharWidth     uint8         // 0x0B    0x01  Max Character Width
+	SheetSize        uint32        // 0x0C    0x04  Sheet Size
+	BaselinePosition uint16        // 0x10    0x02  Baseline Position
+	SheetImageFormat uint16        // 0x12    0x02  Sheet Image Format 0-13: (RGBA8, RGB8, RGBA5551, RGB565, RGBA4, LA8, HILO8, L8, A8, LA4, L4, A4, ETC1, ETC1A4)
+	NumOfColumns     uint16        // 0x14    0x02  Number of Sheet columns
+	NumOfRows        uint16        // 0x16    0x02  Number of Sheet rows
+	SheetWidth       uint16        // 0x18    0x02  Sheet Width
+	SheetHeight      uint16        // 0x1A    0x02  Sheet Height
+	SheetDataOffset  uint32        // 0x1C    0x04  Sheet Data Offset
+	AllSheetData     []byte        // raw bytes of all data sheets
+	SheetData        []image.Alpha // separated unswizzled images
 }
 
-func (tglp *TGLP_BFFNT) decode(tglpRaw []byte, allRaw []byte) {
-	raw := tglpRaw
-	// Version 4 (BFFNT)
+// Version 4 (BFFNT)
+// The input for TGLP decode is the entire BFFNT file in the form of a byte
+// array ([]byte).
+func (tglp *TGLP_BFFNT) decode(raw []byte) {
+	headerStart := CFNT_HEADER_SIZE + FINF_HEADER_SIZE
+	headerEnd := headerStart + TGLP_HEADER_SIZE
+	headerRaw := raw[headerStart:headerEnd]
+	assertEqual(TGLP_HEADER_SIZE, len(headerRaw))
+	tglp.decodeHeader(headerRaw)
+
+	totalSheetDataSize := int(tglp.SheetSize) * int(tglp.NumOfSheets)
+	dataStart := int(tglp.SheetDataOffset)
+	dataEnd := dataStart + totalSheetDataSize
+	tglp.AllSheetData = raw[dataStart:dataEnd]
+
+	// NOT TO SCALE representation of a portion of the bffnt file in raw bytes
+	// for visual purposes
+	//                      |-------------TGLP section size---------------------------|
+	// CFNT   FINF          TGLP header    padding              tglp SheetDataOffset
+	// |      |             |              |                    |
+	// aaaaaa bbbbbbbbbbbbb cccccccccccccc 00000000000000000000 ddddddddddddddddddddddd
+	padding := int(tglp.SheetDataOffset) - CFNT_HEADER_SIZE - FINF_HEADER_SIZE - TGLP_HEADER_SIZE
+	calculatedTGLPSectionSize := TGLP_HEADER_SIZE + padding + len(tglp.AllSheetData)
+	assertEqual(int(tglp.SectionSize), calculatedTGLPSectionSize)
+
+	tglp.decodeSheets()
+	if debug {
+		fmt.Printf("Read section total of %d bytes\n", dataEnd-headerStart)
+		fmt.Println("Byte offsets start(inclusive) to end(exclusive)================")
+		fmt.Printf("header      %-8d to  %d\n", headerStart, headerEnd)
+		fmt.Printf("padding     %-8d to  %d\n", headerEnd, dataStart)
+		fmt.Printf("image data  %-8d to  %d\n", dataStart, dataEnd)
+		fmt.Println()
+	}
+}
+
+func (tglp *TGLP_BFFNT) decodeHeader(raw []byte) {
 	tglp.MagicHeader = string(raw[0:4])
 	tglp.SectionSize = binary.BigEndian.Uint32(raw[4:])
 	tglp.CellWidth = raw[8] // byte == uint8
@@ -177,14 +269,17 @@ func (tglp *TGLP_BFFNT) decode(tglpRaw []byte, allRaw []byte) {
 	tglp.SheetHeight = binary.BigEndian.Uint16(raw[26:])
 	tglp.SheetDataOffset = binary.BigEndian.Uint32(raw[28:])
 
-	fmt.Println("TGLP Header")
-	pprint(tglp)
+	if debug {
+		pprint(tglp)
+	}
+}
 
-	//DECODE IMAGE===========================================================
-	start := tglp.SheetDataOffset
-	end := tglp.SheetDataOffset + tglp.SheetSize
-	data := allRaw[start:end]
+// TODO: decode multiple sheets
+func (tglp *TGLP_BFFNT) decodeSheets() {
+	totalSheetBytes := int(tglp.NumOfSheets) * int(tglp.SheetSize)
+	assertEqual(totalSheetBytes, len(tglp.AllSheetData))
 
+	sheetData := tglp.AllSheetData
 	depth := uint(1)
 	sw := uint(tglp.SheetWidth)
 	sh := uint(tglp.SheetHeight)
@@ -196,16 +291,16 @@ func (tglp *TGLP_BFFNT) decode(tglpRaw []byte, allRaw []byte) {
 	bpp := uint(8)
 	slice := uint(0)
 	sample := uint(0)
-	deswizzledImage := deswizzle(sw, sh, depth, sh, format_, aa, use, tileMode, swizzle_, sw, bpp, slice, sample, data)
+	deswizzledImage := deswizzle(sw, sh, depth, sh, format_, aa, use, tileMode, swizzle_, sw, bpp, slice, sample, sheetData)
 
-	// // TODO rework this to use custom horizontal flip
+	// TODO rework this to use custom horizontal flip
 	alphaImg := image.Alpha{
-		Pix: deswizzledImage,
-		// TODO: int conversion should end with a positive number
+		Pix:    deswizzledImage,
 		Stride: int(tglp.SheetWidth),
 		Rect:   image.Rect(0, 0, int(tglp.SheetWidth), int(tglp.SheetHeight)),
 	}
 
+	// imaging.FlipV returns an NRGBA image
 	imgFlipped := imaging.FlipV(alphaImg.SubImage(alphaImg.Rect))
 
 	// convert back into alphaImg
@@ -213,25 +308,58 @@ func (tglp *TGLP_BFFNT) decode(tglpRaw []byte, allRaw []byte) {
 		alphaImg.Pix[i] = imgFlipped.Pix[4*i+3]
 	}
 
-	f, err := os.Create("outimage.png")
-	handleErr(err)
-	defer f.Close()
+	tglp.SheetData = append(tglp.SheetData, alphaImg)
 
-	// Encode to `PNG` with `DefaultCompression` level
-	// then save to file
-	err = png.Encode(f, alphaImg.SubImage(alphaImg.Rect))
-	handleErr(err)
-	//==================================================================================
+	// f, err := os.Create("outimage.png")
+	// handleErr(err)
+	// defer f.Close()
+
+	// // Encode to `PNG` with `DefaultCompression` level
+	// // then save to file
+	// err = png.Encode(f, alphaImg.SubImage(alphaImg.Rect))
+	// handleErr(err)
+
+}
+
+func (tglp *TGLP_BFFNT) encodeHeader() []byte {
+	var buf bytes.Buffer
+	w := bufio.NewWriter(&buf)
+
+	_, _ = w.Write([]byte(tglp.MagicHeader))
+	_ = binary.Write(w, binary.BigEndian, tglp.SectionSize)
+	_ = binary.Write(w, binary.BigEndian, tglp.CellWidth)
+	_ = binary.Write(w, binary.BigEndian, tglp.CellHeight)
+	_ = binary.Write(w, binary.BigEndian, tglp.NumOfSheets)
+	_ = binary.Write(w, binary.BigEndian, tglp.MaxCharWidth)
+	_ = binary.Write(w, binary.BigEndian, tglp.SheetSize)
+	_ = binary.Write(w, binary.BigEndian, tglp.BaselinePosition)
+	_ = binary.Write(w, binary.BigEndian, tglp.SheetImageFormat)
+	_ = binary.Write(w, binary.BigEndian, tglp.NumOfColumns)
+	_ = binary.Write(w, binary.BigEndian, tglp.NumOfRows)
+	_ = binary.Write(w, binary.BigEndian, tglp.SheetWidth)
+	_ = binary.Write(w, binary.BigEndian, tglp.SheetHeight)
+	_ = binary.Write(w, binary.BigEndian, tglp.SheetDataOffset)
+	w.Flush()
+
+	assertEqual(TGLP_HEADER_SIZE, len(buf.Bytes()))
+	return buf.Bytes()
+}
+
+// TODO
+func (tglp *TGLP_BFFNT) encodeSheets() []byte {
+	return nil
 }
 
 func deswizzle(width uint, height uint, depth uint, height_ uint, format uint, aa uint, use uint, tileMode uint, swizzle_ uint, pitch uint, bpp uint, slice uint, sample uint, data []byte) []byte {
 	return swizzleSurface(width, height, depth, format, aa, use, tileMode, swizzle_, pitch, bpp, slice, sample, data, false)
 }
+
 func swizzle(width uint, height uint, depth uint, height_ uint, format uint, aa uint, use uint, tileMode uint, swizzle_ uint, pitch uint, bpp uint, slice uint, sample uint, byte, data []byte) []byte {
 	return swizzleSurface(width, height, depth, format, aa, use, tileMode, swizzle_, pitch, bpp, slice, sample, data, true)
 }
 
 // Copied from KillzXGaming/Switch-Toolbox
+// KillzXGaming/Switch-Toolbox credits ____________
 func swizzleSurface(width uint, height uint, depth uint, format uint, aa uint, use uint, tileMode uint, swizzle_ uint, pitch uint, bpp uint, slice uint, sample uint, data []byte, swizzle bool) []byte {
 	var bytesPerPixel uint = bpp / 8
 	result := make([]byte, len(data))
@@ -563,136 +691,295 @@ func computeMacroPitchAndHeight(tileMode AddrTileMode) (pitch uint, height uint)
 	return macroTilePitch, macroTileHeight
 }
 
-type CWDH struct { //           Offset  Size                             Description
-	MagicHeader    string //       0x00    0x04                             Magic Header (CWDH)
-	SectionSize    uint32 //       0x04    0x04                             Section Size
-	StartIndex     uint16 // 0x08    0x02                             Start Index
-	EndIndex       uint16 // 0x0A    0x02                             End Index
-	NextCWDHOffset uint32 // 0x0C    0x04                             Next CWDH Offset
-	// LeftWidth      uint8  // 0x10    3 * (EndIndex - StartIndex + 1)  Char Widths (3 bytes: Left, Glyph Width, Char Width)
-	// GlyphWidth     uint8
-	// CharWidth      uint8
+type CWDH struct { //        Offset  Size  Description
+	MagicHeader    string // 0x00    0x04  Magic Header (CWDH)
+	SectionSize    uint32 // 0x04    0x04  Section Size
+	StartIndex     uint16 // 0x08    0x02  Start Index
+	EndIndex       uint16 // 0x0A    0x02  End Index
+	NextCWDHOffset uint32 // 0x0C    0x04  Next CWDH Offset
+	Glyphs         []glyphInfo
+
+	// Data until the end of the section comes in tuples of 3 bytes
+	// LeftWidth   uint8  // 0x10    0x04  Char Widths (3 bytes: Left, Glyph Width, Char Width)
+	// GlyphWidth  uint8
+	// CharWidth   uint8
 }
 
 type glyphInfo struct {
-	StartIndex     uint16
-	EndIndex       uint16
-	NextCWDHOffset uint32
-	LeftWidth      uint8
-	GlyphWidth     uint8
-	CharWidth      uint8
+	LeftWidth  int8 // left spacing
+	GlyphWidth int8
+	CharWidth  int8
 }
 
-func (cwdh *CWDH) decode(raw []byte) []glyphInfo {
+func (cwdh *CWDH) decode(raw []byte, cwdhOffset uint32) {
+	// FINF.CWDHOffset skips the first 8 bytes that contain the CWDH Magic Header
+	headerStart := int(cwdhOffset - 8)
+	headerEnd := headerStart + CWDH_HEADER_SIZE
+	headerBytes := raw[headerStart:headerEnd]
+	cwdh.decodeHeader(headerBytes)
+
+	// Character width data is read in tuples of 3 bytes.  The glyph width info
+	// is ordered corresponding to a character index.
+	dataSize := int(cwdh.SectionSize - CWDH_HEADER_SIZE)
+	dataStart := int(headerEnd) // data starts when the header ends
+	dataEnd := dataStart + dataSize
+	data := raw[dataStart:dataEnd]
+	resultGlyphs := make([]glyphInfo, 0)
+
+	dataPos := 0
+	for i := int(cwdh.StartIndex); i <= int(cwdh.EndIndex); i++ {
+		currentGlyph := glyphInfo{
+			LeftWidth:  int8(data[dataPos]),
+			GlyphWidth: int8(data[dataPos+1]),
+			CharWidth:  int8(data[dataPos+2]),
+		}
+		resultGlyphs = append(resultGlyphs, currentGlyph)
+		dataPos += 3
+	}
+	cwdh.Glyphs = resultGlyphs
+
+	// hs := int(headerStart)
+	// fmt.Println(hs)                                         // 532480
+	// fmt.Println(hs + CWDH_HEADER_SIZE)                      // 532496
+	// fmt.Println(hs + CWDH_HEADER_SIZE + 3*len(cwdh.Glyphs)) // 534326
+	// fmt.Println(dataEnd)                                    // 534328
+
+	totalBytesSoFar := int(headerStart) + CWDH_HEADER_SIZE + dataPos
+	calculatedCWDHSectionSize := CWDH_HEADER_SIZE + dataPos + paddingToNext8ByteBoundary(totalBytesSoFar)
+	assertEqual(int(cwdh.SectionSize), calculatedCWDHSectionSize)
+	assertEqual(int(cwdh.EndIndex+1), len(cwdh.Glyphs))
+
+	if debug {
+		dataPosGlobal := headerEnd + dataPos
+		fmt.Printf("Read section total of %d bytes\n", dataPosGlobal-headerStart)
+		fmt.Println("Byte offsets start(inclusive) to end(exclusive)================")
+		fmt.Printf("header           %-8d to  %d\n", headerStart, headerEnd)
+		fmt.Printf("data calculated  %-8d to  %d\n", dataStart, dataPosGlobal)
+		padding := paddingToNext8ByteBoundary(totalBytesSoFar)
+		fmt.Printf("pad %d byte      %-8d to  %d\n", padding, dataPosGlobal, dataPosGlobal+padding)
+		fmt.Println()
+	}
+
+	//TODO decode more than 1 cwdh
+}
+
+// After every CWDH and CMAP section and its data is encoded. There is padding
+// that happens to bring the total bytes to the next 8 byte boundary. This
+// includes all the bytes of CFNT, FINF, every CWDH and every CMAP that was
+// written before.
+func paddingToNext8ByteBoundary(dataLen int) int {
+	return 8 - dataLen%8
+}
+
+func (cwdh *CWDH) decodeHeader(raw []byte) {
+	assertEqual(CWDH_HEADER_SIZE, len(raw))
+
 	cwdh.MagicHeader = string(raw[0:4])
 	cwdh.SectionSize = binary.BigEndian.Uint32(raw[4:])
 	cwdh.StartIndex = binary.BigEndian.Uint16(raw[8:])
 	cwdh.EndIndex = binary.BigEndian.Uint16(raw[10:])
 	cwdh.NextCWDHOffset = binary.BigEndian.Uint32(raw[12:])
 
-	fmt.Println("CWDH Header")
-	pprint(cwdh)
+	if debug {
+		pprint(cwdh)
+	}
+}
 
-	var dataOffset uint16 = 16 // cwdh header info is 15 bytes, data starts on the 16th byte
-	for i := cwdh.StartIndex; i <= cwdh.EndIndex; i++ {
-		idx := 3*i + dataOffset
-		leftSpacing := int8(raw[idx])
-		glyphWidth := int8(raw[idx+1])
-		characterWidth := int8(raw[idx+2])
-		fmt.Println(leftSpacing, glyphWidth, characterWidth)
+func (cwdh *CWDH) encode() []byte {
+	var buf bytes.Buffer
+	w := bufio.NewWriter(&buf)
+
+	_, _ = w.Write([]byte(cwdh.MagicHeader))
+	_ = binary.Write(w, binary.BigEndian, cwdh.SectionSize)
+	_ = binary.Write(w, binary.BigEndian, cwdh.StartIndex)
+	_ = binary.Write(w, binary.BigEndian, cwdh.EndIndex)
+	_ = binary.Write(w, binary.BigEndian, cwdh.NextCWDHOffset)
+	w.Flush()
+
+	assertEqual(CWDH_HEADER_SIZE, len(buf.Bytes()))
+
+	// encode cwdh data
+
+	return buf.Bytes()
+}
+
+// A single cmap contains information about a character's texture location in
+// the images. All cmaps must be decoded to have all character indexes. The
+// different mapping methods exists to save as much bytes as possible.
+type CMAP struct { //         Offset  Size  Description
+	MagicHeader    string // 0x00    0x04  Magic Header (CMAP)
+	SectionSize    uint32 // 0x04    0x04  Section Size
+	CodeBegin      uint16 // 0x08    0x02  Code Begin
+	CodeEnd        uint16 // 0x0A    0x02  Code End
+	MappingMethod  uint16 // 0x0C    0x02  Mapping Method (0 = Direct, 1 = Table, 2 = Scan)
+	Reserved       uint16 // 0x0E    0x02  Reserved?
+	NextCMAPOffset uint32 // 0x10    0x04  Next CMAP Offset
+
+	// key is a character's ascii code
+	// value is the character's index in the tglp's SheetData
+	CharacterIndexMap map[uint16]uint16
+}
+
+func (cmap *CMAP) decode(allRaw []byte, cmapOffset uint32) []CMAP {
+	// CMAPOffset skips the first 8 bytes that contain the CMAP Magic Header
+	headerStart := int(cmapOffset - 8)
+	headerEnd := headerStart + CMAP_HEADER_SIZE
+	headerRaw := allRaw[headerStart:headerEnd]
+
+	assertEqual(CMAP_HEADER_SIZE, len(headerRaw))
+
+	cmap.MagicHeader = string(headerRaw[0:4])
+	cmap.SectionSize = binary.BigEndian.Uint32(headerRaw[4:])
+	cmap.CodeBegin = binary.BigEndian.Uint16(headerRaw[8:])
+	cmap.CodeEnd = binary.BigEndian.Uint16(headerRaw[10:])
+	cmap.MappingMethod = binary.BigEndian.Uint16(headerRaw[12:])
+	cmap.Reserved = binary.BigEndian.Uint16(headerRaw[14:])
+	cmap.NextCMAPOffset = binary.BigEndian.Uint32(headerRaw[16:])
+
+	if debug {
+		pprint(cmap)
 	}
 
-	return nil
-}
+	dataEnd := headerStart + int(cmap.SectionSize)
+	data := allRaw[headerEnd:dataEnd]
+	dataPos := 0
 
-type CMAP struct { //         Offset  Size  Description
-	MagicHeader     string // 0x00    0x04  Magic Header (CMAP)
-	SectionSize     uint32 // 0x04    0x04  Section Size
-	CodeBegin       uint16 // 0x08    0x02  Code Begin
-	CodeEnd         uint16 // 0x0A    0x02  Code End
-	MappingMethod   uint16 // 0x0C    0x02  Mapping Method (0 = Direct, 1 = Table, 2 = Scan)
-	UnknownReserved uint16 // 0x0E    0x02  Reserved?
-	NextCMAPOffset  uint32 // 0x10    0x04  Next CMAP Offset
-}
-
-func (cmap *CMAP) decode(allRaw []byte, offset uint32) []CMAP {
-	raw := allRaw[offset:]
-	cmap.MagicHeader = string(raw[0:4])
-	cmap.SectionSize = binary.BigEndian.Uint32(raw[4:])
-	cmap.CodeBegin = binary.BigEndian.Uint16(raw[8:])
-	cmap.CodeEnd = binary.BigEndian.Uint16(raw[10:])
-	// TODO: put mapping into its own type. it would be easier to read case statements.
-	cmap.MappingMethod = binary.BigEndian.Uint16(raw[12:])
-	cmap.UnknownReserved = binary.BigEndian.Uint16(raw[14:])
-	cmap.NextCMAPOffset = binary.BigEndian.Uint32(raw[16:])
-
-	fmt.Println("CMAP Header")
-	pprint(cmap)
-
-	// TODO sectionsize verification
-
-	// direct mapping is used if all the characters in the range are used. The
-	// reserved data is characterOffset. Character offset is needed if the
-	// direct map is not the first map to be read. Instead of storing an array
-	// of the character's index, we can save (CodeEnd - CodeStart + 1) uint16s
-	// worth of bytes by just storing an offset and calculating the index. With
-	// each new character in a direct character map, the character's index is
+	// Direct mapping is the most space efficient of mapping type. It is used
+	// if all the characters in the range are to be indexed. The reserved data
+	// is characterOffset. Character offset is needed if the direct map is not
+	// the first map to be read. Instead of storing any additional daata other
+	// than the header, bytes are saved by just storing an offset and
+	// calculating the index based on the character's ascii code. With each new
+	// character in a direct character map, the character's index is
 	// incremented by 1. The character offset should be equal to the total
-	// number of characters read in from the previous CMAPs.
+	// number of characters indexed from previous CMAPs.
+	indexMap := make(map[uint16]uint16, 0)
 	switch cmap.MappingMethod {
-	case 0: //direct mapping
-		characterOffset := cmap.UnknownReserved
+	case 0:
+		characterOffset := cmap.Reserved
 		for i := cmap.CodeBegin; i <= cmap.CodeEnd; i++ {
-			charCode := rune(i)
-			charIdx := i - cmap.CodeBegin + characterOffset
-			fmt.Printf("direct %#U %d\n", charCode, charIdx)
+			charAsciiCode := i
+			charIndex := i - cmap.CodeBegin + characterOffset
+			indexMap[charAsciiCode] = charIndex
+
+			// fmt.Printf("direct %#U %d\n", rune(charCode), charIdx)
 		}
+		cmap.CharacterIndexMap = indexMap
+
+		characterCodeCount := int(cmap.CodeEnd - cmap.CodeBegin + 1)
+		assertEqual(characterCodeCount, len(cmap.CharacterIndexMap))
+		// totalBytesSoFar := int(headerStart) + CMAP_HEADER_SIZE + dataLen
+		// calculatedSectionSize := CMAP_HEADER_SIZE + dataLen + paddingToNext8ByteBoundary(totalBytesSoFar)
+
+		// calculatedSectionSize := CMAP_HEADER_SIZE + dataPos
+		// fmt.Println("calc section size", calculatedSectionSize)
+		// diff := int(cmap.SectionSize) - calculatedSectionSize
+		// fmt.Println("diff:", diff)
+		// for i := 0; i < diff; i++ {
+		// 	offsetFromData := CMAP_HEADER_SIZE + dataPos
+		// 	fmt.Println(offsetFromData+i, data[dataPos+i])
+		// }
+		// assertEqual(int(cmap.SectionSize), calculatedSectionSize)
 		break
 
-	// table mapping is used when there are unused characters in the range of
-	// characters the next (CodeEnd - CodeStart + 1) amount of bytes. An array
-	// of index that starts after the cmap header is included. Unused
+	// Table mapping is used when there are unused characters in between the
+	// range of CodeBegin and CodeEnd. Character Index is stored in the next
+	// (CodeEnd - CodeStart + 1) amount of bytes after the header. Unused
 	// characters will have an index of MaxUint16 (65535).
-	case 1: //table maping
-		cmapIndex := 20
+	case 1:
 		for i := cmap.CodeBegin; i <= cmap.CodeEnd; i++ {
-			charCode := rune(i)
-			charIdx := binary.BigEndian.Uint16(raw[cmapIndex:])
-			if charIdx != 65535 { // math.MaxUint16
-				fmt.Printf("table %#U %d\n", charCode, charIdx)
+			charAsciiCode := i
+			charIndex := binary.BigEndian.Uint16(data[dataPos:])
+			if charIndex != 65535 { // math.MaxUint16
+				indexMap[charAsciiCode] = charIndex
+
+				// fmt.Printf("table %#U %d\n", charCode, charIdx)
 			}
-			cmapIndex += 2
+			dataPos += 2
 		}
+		cmap.CharacterIndexMap = indexMap
+
+		// calculatedSectionSize := CMAP_HEADER_SIZE + dataPos
+		// fmt.Println("calc section size", calculatedSectionSize)
+		// diff := int(cmap.SectionSize) - calculatedSectionSize
+		// fmt.Println("diff:", diff)
+		// for i := 0; i < diff; i++ {
+		// 	offsetFromData := CMAP_HEADER_SIZE + dataPos
+		// 	fmt.Println(offsetFromData+i, data[dataPos+i])
+		// }
+		// assertEqual(int(cmap.SectionSize), calculatedSectionSize)
+
 		break
 
-	// scan mapping is used for glyph mappings. An array of glyphs and it's
-	// index is included after the header data. The first uint16 is the amount
-	// of glphphs to read. After that the bytes are read in uint16 pairs. Read
-	// a uint16 for the character unicode and then a uint16 for the character
-	// index.
-	case 2: //scan
-		charCount := binary.BigEndian.Uint16(raw[20:])
+	// Scan mapping is used for individual ascii code indexing. And the most
+	// space inefficient type of character mapping. It is done by storing an
+	// array of ascii codes and its index after the header. The first uint16 is
+	// the amount of glyphs to read. After that the bytes are read in uint16
+	// pairs. Read a uint16 for the character ascii code and then another
+	// uint16 for the character index.
+	case 2:
+		charCount := binary.BigEndian.Uint16(data[dataPos:])
+		dataPos += 2
 
-		cmapIndex := 22
 		for i := uint16(0); i < charCount; i++ {
-			charCode := rune(binary.BigEndian.Uint16(raw[cmapIndex:]))
-			charIdx := binary.BigEndian.Uint16(raw[cmapIndex+2:])
-			fmt.Printf("table %#U %d\n", charCode, charIdx)
-			cmapIndex += 4
+			charAsciiCode := binary.BigEndian.Uint16(data[dataPos:])
+			charIndex := binary.BigEndian.Uint16(data[dataPos+2:])
+			indexMap[charAsciiCode] = charIndex
+			// fmt.Printf("table %#U %d\n", charAsciiCode, charIndex)
+
+			dataPos += 4
 		}
+		cmap.CharacterIndexMap = indexMap
+
+		// calculatedSectionSize := CMAP_HEADER_SIZE + dataPos
+		// fmt.Println("calc section size", calculatedSectionSize)
+		// diff := int(cmap.SectionSize) - calculatedSectionSize
+		// fmt.Println("diff:", diff)
+		// for i := 0; i < diff; i++ {
+		// 	offsetFromData := CMAP_HEADER_SIZE + dataPos
+		// 	fmt.Println(offsetFromData+i, data[dataPos+i])
+		// }
+		// assertEqual(int(cmap.SectionSize), calculatedSectionSize)
 		break
 
 	default:
 		panic("unknown mapping method")
 	}
 
-	if cmap.NextCMAPOffset == 0 {
-		return nil
+	// fmt.Println("cmap padding start", headerStart+CMAP_HEADER_SIZE+dataPos)
+	// totalBytesSoFar := int(headerStart) + CMAP_HEADER_SIZE + dataLen
+	// fmt.Println("padding to next 8 byte boundary", paddingToNext8ByteBoundary(totalBytesSoFar))
+
+	if debug {
+		dataPosEnd := headerEnd + dataPos
+		fmt.Printf("Read section total of %d bytes\n", dataPosEnd-headerStart)
+		fmt.Println("Byte offsets start(inclusive) to end(exclusive)================")
+		fmt.Printf("header           %-8d to  %d\n", headerStart, headerEnd)
+		fmt.Printf("data calculated  %-8d to  %d\n", headerEnd, dataPosEnd)
+		padding := headerStart + int(cmap.SectionSize) - dataPosEnd
+		fmt.Printf("pad %d bytes     %-8d to  %d\n", padding, dataPosEnd, dataPosEnd+padding)
+		fmt.Println()
 	}
 
-	cmap.decode(allRaw, cmap.NextCMAPOffset-8)
-
 	return nil
+}
+
+func (cmap *CMAP) encode() []byte {
+	return nil
+}
+
+func decodeAllCmaps(allRaw []byte, offset uint32) []CMAP {
+	res := make([]CMAP, 0)
+
+	for offset != 0 {
+		var currentCmap CMAP
+		currentCmap.decode(allRaw, offset)
+		res = append(res, currentCmap)
+
+		offset = currentCmap.NextCMAPOffset
+	}
+
+	return res
 }
 
 // This BFFNT file is Breath of the Wild's NormalS_00.bffnt. The goal of the
@@ -700,27 +987,35 @@ func (cmap *CMAP) decode(allRaw []byte, offset uint32) []CMAP {
 const testBffntFile = "NormalS_00.bffnt"
 
 func main() {
-	rawBytes, err := ioutil.ReadFile(testBffntFile)
+	flag.BoolVar(&debug, "d", false, "enable debug output")
+	flag.Parse()
+
+	bffntRaw, err := ioutil.ReadFile(testBffntFile)
 	handleErr(err)
 
 	var cfnt CFNT
-	cfnt.decode(rawBytes[0:20])
+	cfnt.decode(bffntRaw)
 	_ = cfnt.encode()
 
-	return
-
 	var finf FINF_BFFNT
-	finf.decode(rawBytes[20:52])
+	finf.decode(bffntRaw)
+	_ = finf.encode()
 
 	var tglp TGLP_BFFNT
-	tglp.decode(rawBytes[52:84], rawBytes)
+	tglp.decode(bffntRaw)
+	_ = tglp.encodeHeader()
+	_ = tglp.encodeSheets()
 
 	var cwdh CWDH
-	// CWDHOffset skips the first 8 bytes that contain the CWDH Magic Header
-	cwdh.decode(rawBytes[finf.CWDHOffset-8:])
+	cwdh.decode(bffntRaw, finf.CWDHOffset)
+	_ = cwdh.encode()
 
-	// CMAPOffset skips the first 8 bytes that contain the CMAP Magic Header
-	var cmap CMAP
-	cmap.decode(rawBytes, finf.CMAPOffset-8)
+	_ = decodeAllCmaps(bffntRaw, finf.CMAPOffset)
 
+	// For some reason there are an extra 3084 bytes left over
+	leftOver := bffntRaw[536080:]
+	fmt.Println("%d bytes left over", len(leftOver))
+	fmt.Println(string(leftOver))
+
+	return
 }
