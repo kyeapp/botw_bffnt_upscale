@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -14,6 +16,12 @@ import (
 
 // Resources
 // https://www.3dbrew.org/wiki/BCFNT#Version_4_.28BFFNT.29
+
+func assertEqual(actual int, expected int) {
+	if actual != expected {
+		panic(fmt.Errorf("Expected %d to be be %d\n", actual, expected))
+	}
+}
 
 func handleErr(err error) {
 	if err != nil {
@@ -55,27 +63,43 @@ const (
 
 type CFNT struct { //       Offset  Size  Description
 	MagicHeader   string // 0x00    0x04  Magic Header (either CFNT or CFNU or FFNT)
-	Endianness    string // 0x04    0x02  Endianness (0xFEFF = little, 0xFFFE = big)
+	Endianness    uint16 // 0x04    0x02  Endianness (0xFEFF = little, 0xFFFE = big)
 	SectionSize   uint16 // 0x06    0x02  Header Size
-	Version       string // 0x08    0x04  Version (observed to be 0x03000000)
+	Version       uint32 // 0x08    0x04  Version (observed to be 0x03000000)
 	TotalFileSize uint32 // 0x0C    0x04  File size (the total)
 	BlockReadNum  uint32 // 0x10    0x04  Number of "blocks" to read
 }
 
 func (cfnt *CFNT) decode(raw []byte) {
 	cfnt.MagicHeader = string(raw[0:4])
-	cfnt.Endianness = fmt.Sprintf("%X", binary.BigEndian.Uint16(raw[4:]))
+	cfnt.Endianness = binary.BigEndian.Uint16(raw[4:])
 	cfnt.SectionSize = binary.BigEndian.Uint16(raw[6:])
-	cfnt.Version = fmt.Sprintf("%X", binary.BigEndian.Uint32(raw[8:]))
+	cfnt.Version = binary.BigEndian.Uint32(raw[8:])
 	cfnt.TotalFileSize = binary.BigEndian.Uint32(raw[12:])
 	cfnt.BlockReadNum = binary.BigEndian.Uint32(raw[16:])
 
-	if cfnt.Endianness != "FEFF" {
-		panic("big endian not supported")
-	}
-
 	fmt.Println("CFNT Header")
 	pprint(cfnt)
+}
+
+func (cfnt *CFNT) encode() []byte {
+	var buf bytes.Buffer
+	w := bufio.NewWriter(&buf)
+
+	_, _ = w.Write([]byte(cfnt.MagicHeader))
+	_ = binary.Write(w, binary.BigEndian, cfnt.Endianness)
+	_ = binary.Write(w, binary.BigEndian, cfnt.SectionSize)
+	_ = binary.Write(w, binary.BigEndian, cfnt.Version)
+	_ = binary.Write(w, binary.BigEndian, cfnt.TotalFileSize)
+	_ = binary.Write(w, binary.BigEndian, cfnt.BlockReadNum)
+
+	w.Flush()
+	fmt.Println(buf.Bytes())
+	assertEqual(len(buf.Bytes()), 20)
+
+	cfnt.decode(buf.Bytes())
+
+	return buf.Bytes()
 }
 
 type FINF_BFFNT struct { //  Offset  Size  Description
@@ -591,12 +615,6 @@ type CMAP struct { //         Offset  Size  Description
 	NextCMAPOffset  uint32 // 0x10    0x04  Next CMAP Offset
 }
 
-const (
-	Direct uint16 = 0
-	Table  uint16 = 1
-	Scan   uint16 = 2
-)
-
 func (cmap *CMAP) decode(allRaw []byte, offset uint32) []CMAP {
 	raw := allRaw[offset:]
 	cmap.MagicHeader = string(raw[0:4])
@@ -687,6 +705,9 @@ func main() {
 
 	var cfnt CFNT
 	cfnt.decode(rawBytes[0:20])
+	_ = cfnt.encode()
+
+	return
 
 	var finf FINF_BFFNT
 	finf.decode(rawBytes[20:52])
@@ -698,7 +719,8 @@ func main() {
 	// CWDHOffset skips the first 8 bytes that contain the CWDH Magic Header
 	cwdh.decode(rawBytes[finf.CWDHOffset-8:])
 
-	// // CMAPOffset skips the first 8 bytes that contain the CMAP Magic Header
+	// CMAPOffset skips the first 8 bytes that contain the CMAP Magic Header
 	var cmap CMAP
 	cmap.decode(rawBytes, finf.CMAPOffset-8)
+
 }
