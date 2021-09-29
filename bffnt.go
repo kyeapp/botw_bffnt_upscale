@@ -27,6 +27,7 @@ const (
 // Resources
 // https://www.3dbrew.org/wiki/BCFNT#Version_4_.28BFFNT.29
 // http://wiki.tockdom.com/wiki/BRFNT_(File_Format)
+// https://github.com/KillzXGaming/Switch-Toolbox/blob/12dfbaadafb1ebcd2e07d239361039a8d05df3f7/File_Format_Library/FileFormats/Font/BXFNT/FontKerningTable.cs
 
 func assertEqual(expected int, actual int) {
 	if expected != actual {
@@ -45,10 +46,6 @@ func pprint(s interface{}) {
 	handleErr(err)
 
 	fmt.Printf("%s\n", string(jsonBytes))
-}
-
-func printDebug(s interface{}, headerStart int, headerEnd int) {
-
 }
 
 type AddrTileMode uint
@@ -92,11 +89,11 @@ func (cfnt *CFNT) decode(raw []byte) {
 	assertEqual(CFNT_HEADER_SIZE, len(headerRaw))
 
 	cfnt.MagicHeader = string(headerRaw[0:4])
-	cfnt.Endianness = binary.BigEndian.Uint16(headerRaw[4:])
-	cfnt.SectionSize = binary.BigEndian.Uint16(headerRaw[6:])
-	cfnt.Version = binary.BigEndian.Uint32(headerRaw[8:])
-	cfnt.TotalFileSize = binary.BigEndian.Uint32(headerRaw[12:])
-	cfnt.BlockReadNum = binary.BigEndian.Uint32(headerRaw[16:])
+	cfnt.Endianness = binary.BigEndian.Uint16(headerRaw[4:6])
+	cfnt.SectionSize = binary.BigEndian.Uint16(headerRaw[6:8])
+	cfnt.Version = binary.BigEndian.Uint32(headerRaw[8:12])
+	cfnt.TotalFileSize = binary.BigEndian.Uint32(headerRaw[12:16])
+	cfnt.BlockReadNum = binary.BigEndian.Uint32(headerRaw[16:CFNT_HEADER_SIZE])
 
 	if debug {
 		pprint(cfnt)
@@ -149,20 +146,20 @@ func (finf *FINF_BFFNT) decode(raw []byte) {
 	assertEqual(FINF_HEADER_SIZE, len(headerRaw))
 
 	finf.MagicHeader = string(headerRaw[0:4])
-	finf.SectionSize = binary.BigEndian.Uint32(headerRaw[4:])
+	finf.SectionSize = binary.BigEndian.Uint32(headerRaw[4:8])
 	finf.FontType = headerRaw[8] // byte == uint8
 	finf.Height = headerRaw[9]
 	finf.Width = headerRaw[10]
 	finf.Ascent = headerRaw[11]
-	finf.LineFeed = binary.BigEndian.Uint16(headerRaw[12:])
-	finf.AlterCharIndex = binary.BigEndian.Uint16(headerRaw[14:])
+	finf.LineFeed = binary.BigEndian.Uint16(headerRaw[12:14])
+	finf.AlterCharIndex = binary.BigEndian.Uint16(headerRaw[14:16])
 	finf.DefaultLeftWidth = headerRaw[16]
 	finf.DefaultGlyphWidth = headerRaw[17]
 	finf.DefaultCharWidth = headerRaw[18]
 	finf.Encoding = headerRaw[19]
-	finf.TGLPOffset = binary.BigEndian.Uint32(headerRaw[20:])
-	finf.CWDHOffset = binary.BigEndian.Uint32(headerRaw[24:])
-	finf.CMAPOffset = binary.BigEndian.Uint32(headerRaw[28:])
+	finf.TGLPOffset = binary.BigEndian.Uint32(headerRaw[20:24])
+	finf.CWDHOffset = binary.BigEndian.Uint32(headerRaw[24:28])
+	finf.CMAPOffset = binary.BigEndian.Uint32(headerRaw[28:FINF_HEADER_SIZE])
 
 	if debug {
 		pprint(finf)
@@ -255,19 +252,19 @@ func (tglp *TGLP_BFFNT) decode(raw []byte) {
 
 func (tglp *TGLP_BFFNT) decodeHeader(raw []byte) {
 	tglp.MagicHeader = string(raw[0:4])
-	tglp.SectionSize = binary.BigEndian.Uint32(raw[4:])
+	tglp.SectionSize = binary.BigEndian.Uint32(raw[4:8])
 	tglp.CellWidth = raw[8] // byte == uint8
 	tglp.CellHeight = raw[9]
 	tglp.NumOfSheets = raw[10]
 	tglp.MaxCharWidth = raw[11]
-	tglp.SheetSize = binary.BigEndian.Uint32(raw[12:])
-	tglp.BaselinePosition = binary.BigEndian.Uint16(raw[16:])
-	tglp.SheetImageFormat = binary.BigEndian.Uint16(raw[18:])
-	tglp.NumOfColumns = binary.BigEndian.Uint16(raw[20:])
-	tglp.NumOfRows = binary.BigEndian.Uint16(raw[22:])
-	tglp.SheetWidth = binary.BigEndian.Uint16(raw[24:])
-	tglp.SheetHeight = binary.BigEndian.Uint16(raw[26:])
-	tglp.SheetDataOffset = binary.BigEndian.Uint32(raw[28:])
+	tglp.SheetSize = binary.BigEndian.Uint32(raw[12:16])
+	tglp.BaselinePosition = binary.BigEndian.Uint16(raw[16:18])
+	tglp.SheetImageFormat = binary.BigEndian.Uint16(raw[18:20])
+	tglp.NumOfColumns = binary.BigEndian.Uint16(raw[20:22])
+	tglp.NumOfRows = binary.BigEndian.Uint16(raw[22:24])
+	tglp.SheetWidth = binary.BigEndian.Uint16(raw[24:26])
+	tglp.SheetHeight = binary.BigEndian.Uint16(raw[26:28])
+	tglp.SheetDataOffset = binary.BigEndian.Uint32(raw[28:TGLP_HEADER_SIZE])
 
 	if debug {
 		pprint(tglp)
@@ -775,10 +772,10 @@ func (cwdh *CWDH) decodeHeader(raw []byte) {
 	assertEqual(CWDH_HEADER_SIZE, len(raw))
 
 	cwdh.MagicHeader = string(raw[0:4])
-	cwdh.SectionSize = binary.BigEndian.Uint32(raw[4:])
-	cwdh.StartIndex = binary.BigEndian.Uint16(raw[8:])
-	cwdh.EndIndex = binary.BigEndian.Uint16(raw[10:])
-	cwdh.NextCWDHOffset = binary.BigEndian.Uint32(raw[12:])
+	cwdh.SectionSize = binary.BigEndian.Uint32(raw[4:8])
+	cwdh.StartIndex = binary.BigEndian.Uint16(raw[8:10])
+	cwdh.EndIndex = binary.BigEndian.Uint16(raw[10:12])
+	cwdh.NextCWDHOffset = binary.BigEndian.Uint32(raw[12:CWDH_HEADER_SIZE])
 
 	if debug {
 		pprint(cwdh)
@@ -829,12 +826,12 @@ func (cmap *CMAP) decode(allRaw []byte, cmapOffset uint32) []CMAP {
 	assertEqual(CMAP_HEADER_SIZE, len(headerRaw))
 
 	cmap.MagicHeader = string(headerRaw[0:4])
-	cmap.SectionSize = binary.BigEndian.Uint32(headerRaw[4:])
-	cmap.CodeBegin = binary.BigEndian.Uint16(headerRaw[8:])
-	cmap.CodeEnd = binary.BigEndian.Uint16(headerRaw[10:])
-	cmap.MappingMethod = binary.BigEndian.Uint16(headerRaw[12:])
-	cmap.Reserved = binary.BigEndian.Uint16(headerRaw[14:])
-	cmap.NextCMAPOffset = binary.BigEndian.Uint32(headerRaw[16:])
+	cmap.SectionSize = binary.BigEndian.Uint32(headerRaw[4:8])
+	cmap.CodeBegin = binary.BigEndian.Uint16(headerRaw[8:10])
+	cmap.CodeEnd = binary.BigEndian.Uint16(headerRaw[10:12])
+	cmap.MappingMethod = binary.BigEndian.Uint16(headerRaw[12:14])
+	cmap.Reserved = binary.BigEndian.Uint16(headerRaw[14:16])
+	cmap.NextCMAPOffset = binary.BigEndian.Uint32(headerRaw[16:CMAP_HEADER_SIZE])
 
 	if debug {
 		pprint(cmap)
@@ -889,7 +886,7 @@ func (cmap *CMAP) decode(allRaw []byte, cmapOffset uint32) []CMAP {
 	case 1:
 		for i := cmap.CodeBegin; i <= cmap.CodeEnd; i++ {
 			charAsciiCode := i
-			charIndex := binary.BigEndian.Uint16(data[dataPos:])
+			charIndex := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
 			if charIndex != 65535 { // math.MaxUint16
 				indexMap[charAsciiCode] = charIndex
 
@@ -918,12 +915,12 @@ func (cmap *CMAP) decode(allRaw []byte, cmapOffset uint32) []CMAP {
 	// pairs. Read a uint16 for the character ascii code and then another
 	// uint16 for the character index.
 	case 2:
-		charCount := binary.BigEndian.Uint16(data[dataPos:])
+		charCount := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
 		dataPos += 2
 
 		for i := uint16(0); i < charCount; i++ {
-			charAsciiCode := binary.BigEndian.Uint16(data[dataPos:])
-			charIndex := binary.BigEndian.Uint16(data[dataPos+2:])
+			charAsciiCode := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
+			charIndex := binary.BigEndian.Uint16(data[dataPos+2 : dataPos+4])
 			indexMap[charAsciiCode] = charIndex
 			// fmt.Printf("table %#U %d\n", charAsciiCode, charIndex)
 
@@ -1012,10 +1009,23 @@ func main() {
 
 	_ = decodeAllCmaps(bffntRaw, finf.CMAPOffset)
 
-	// For some reason there are an extra 3084 bytes left over
-	leftOver := bffntRaw[536080:]
-	fmt.Println("%d bytes left over", len(leftOver))
-	fmt.Println(string(leftOver))
+	// There are 3084 bytes left over
+	// It looks like the remaining data is a kerning table
+	pos := 536080 // KRNG start
+	data := bffntRaw[pos:]
+
+	fmt.Println(string(data[0:4]))
+	fmt.Printf("section size: %v\n", binary.BigEndian.Uint32(data[4:8]))
+
+	dataPos := 8
+	for dataPos < 3084 {
+		c := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
+		fmt.Printf("%v", string(c))
+		dataPos += 2
+	}
+
+	// cmap.CodeBegin = binary.BigEndian.Uint16(headerRaw[8:])
+	// cmap.CodeEnd = binary.BigEndian.Uint16(headerRaw[10:])
 
 	return
 }
