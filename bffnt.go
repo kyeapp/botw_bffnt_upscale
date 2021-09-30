@@ -80,6 +80,20 @@ type CFNT struct { //       Offset  Size  Description
 	Version       uint32 // 0x08    0x04  Version (observed to be 0x03000000)
 	TotalFileSize uint32 // 0x0C    0x04  File size (the total)
 	BlockReadNum  uint32 // 0x10    0x04  Number of "blocks" to read
+
+	// It looks like BlockReadNum is always some multiple of 2^16 (65536 in
+	// decimal. 0x10000 in HEX). Unclear wether this can break a font. It might
+	// be that its a suggestion to the system to it can block read at a time.
+	// perhaps it is ok to change this number around. Change this bit and see if botw crashes.
+
+	// remainder := (cfnt.TotalFileSize % 65536)
+	// quotient := (cfnt.TotalFileSize - remainder) / 65536
+	// calculatedBlockReadNum := int((quotient + 1) * 65536)
+	// fmt.Println(tglp.SheetSize)
+	// fmt.Println(remainder)
+	// fmt.Println(quotient)
+	// fmt.Println(calculatedBlockReadNum)
+	// assertEqual(calculatedBlockReadNum, int(cfnt.BlockReadNum))
 }
 
 func (cfnt *CFNT) decode(raw []byte) {
@@ -981,7 +995,21 @@ func decodeAllCmaps(allRaw []byte, offset uint32) []CMAP {
 
 // This BFFNT file is Breath of the Wild's NormalS_00.bffnt. The goal of the
 // project is to create a bffnt encoder/decoder so I can upscale this font
-const testBffntFile = "NormalS_00.bffnt"
+
+const (
+	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/Ancient/Ancient_00.bffnt"
+	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/Special/Special_00.bffnt"
+	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/Caption/Caption_00.bffnt"
+	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/Normal/Normal_00.bffnt"
+	testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/NormalS/NormalS_00.bffnt"
+	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/External/External_00.bffnt"
+
+	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/comicfont/Normal_00.bffnt"
+	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/kirbysans/Normal_00.bffnt"
+	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/kirbyscript/Normal_00.bffnt"
+	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/popjoy_font/Normal_00.bffnt"
+	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/turbofont/Normal_00.bffnt"
+)
 
 func main() {
 	flag.BoolVar(&debug, "d", false, "enable debug output")
@@ -1010,67 +1038,67 @@ func main() {
 	_ = decodeAllCmaps(bffntRaw, finf.CMAPOffset)
 
 	//KERNING TABLES WIP
-	return
 	// There are 3084 bytes left over
-	// It looks like the remaining data is a kerning table
+
+	// a kerning pair is made up of 2 characters and a kerning value.  it lets
+	// us know how much two characters should be offsetted from each other for
+	// a more aesthetically pleasing visual.
+	//
+	//
+	// Offset  Size  Description
+	// 0x00    0x04  Magic Header (KRNG)
+	// 0x04    0x04  Section Size
+	// 0x08    0x02  amount of First Chars
+	// 0x0A    0x02  First char in a pair
+	// 0x0C    0x02  Offset to the array of second characters (must multiply by 2)
+
+	// When going to the second table then you read
+	// 0x0E    0x02  amount of second characters
+	// 0x10    0x02  second char in a pair
+	// 0x12    0x02  kerning value
 
 	pos := 536080 // KRNG start
 	data := bffntRaw[pos:]
 
-	// fmt.Printf("Endianness: %x\n", bffntRaw[4:6])
-
+	dataPos := 0
 	fmt.Println(string(data[0:4]))
 	fmt.Printf("section size: %v\n", binary.BigEndian.Uint32(data[4:8]))
 	firstCharCount := binary.BigEndian.Uint16(data[8:10])
 	fmt.Printf("amount of FirstChars: %v\n", firstCharCount)
 
-	dataPos := 10
-	// firstCharCount = 1
-	// firstChar := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
-	// nextTableOffset := binary.BigEndian.Uint16(data[dataPos+2 : dataPos+4])
-	// // secondCharCount := binary.BigEndian.Uint16(data[dataPos+4 : dataPos+6])
-	// dataPos += 4
+	dataPos += 10
 
-	// fmt.Printf("Table %d, Char: '%v'\n", i, string(firstChar))
-	// fmt.Printf("next table offset: %v\n", nextTableOffset)
-	// fmt.Printf("second char count: %v\n", secondCharCount)
-
-	// tableData := data[dataPos:nextTableOffset]
 	e := int(firstCharCount)
 	for i := 0; i < e; i++ {
-		secondChar := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
-		kerningValue := binary.BigEndian.Uint16(data[dataPos+2 : dataPos+4])
+		firstChar := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
+		offset := binary.BigEndian.Uint16(data[dataPos+2 : dataPos+4])
 		dataPos += 4
 
-		// 	// secondChar := binary.LittleEndian.Uint16(tableData[dataPos : dataPos+2])
-		// 	// kerningValue := binary.LittleEndian.Uint16(tableData[dataPos+2 : dataPos+4])
-		// 	// dataPos += 4
-
-		// 	// secondChar := tableData[dataPos]
-		// 	// kerningValue := tableData[dataPos+1]
-		// 	// dataPos += 2
-
-		fmt.Printf("( '%s', %d )\n", string(secondChar), kerningValue)
-		// fmt.Printf("('%s', %s)\n", string(secondChar), string(kerningValue))
-
-		// fmt.Println()
-
+		fmt.Printf("( '%s', %d )\n", string(firstChar), offset)
 	}
+	// dataPos is 378
+
+	fmt.Println("SECOND CHARS============================")
+	// decode 2nd char?
+	for i := 0; i < e; i++ {
+		fmt.Println("data index?:", (dataPos-8)/2)
+		secondCharCount := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
+		dataPos += 2
+		fmt.Printf("amount of SecondChars: %v\n", secondCharCount)
+		for i := 0; i < int(secondCharCount); i++ {
+			secondChar := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
+			offset := int16(binary.BigEndian.Uint16(data[dataPos+2 : dataPos+4]))
+			dataPos += 4
+
+			fmt.Printf("( '%s', %d )\n", string(secondChar), offset)
+		}
+	}
+
 	fmt.Println(dataPos)
 
-	v := binary.BigEndian.Uint16(data[dataPos+2 : dataPos+4])
-	fmt.Println(v)
-	// fmt.Printf("kerning: %v\n", string(binary.BigEndian.Uint16(data[14:16])))
-
-	// dataPos := 8
-	// for dataPos < 3084 {
-	// 	c := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
-	// 	fmt.Printf("%v", string(c))
-	// 	dataPos += 2
-	// }
-
-	// cmap.CodeBegin = binary.BigEndian.Uint16(headerRaw[8:])
-	// cmap.CodeEnd = binary.BigEndian.Uint16(headerRaw[10:])
+	// leftover bytes?
+	leftover := uint16(binary.BigEndian.Uint16(data[dataPos : dataPos+2]))
+	fmt.Println(leftover)
 
 	return
 }
