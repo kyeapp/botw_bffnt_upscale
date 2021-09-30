@@ -1009,20 +1009,65 @@ func main() {
 
 	_ = decodeAllCmaps(bffntRaw, finf.CMAPOffset)
 
+	//KERNING TABLES WIP
+	return
 	// There are 3084 bytes left over
 	// It looks like the remaining data is a kerning table
+
 	pos := 536080 // KRNG start
 	data := bffntRaw[pos:]
 
+	// fmt.Printf("Endianness: %x\n", bffntRaw[4:6])
+
 	fmt.Println(string(data[0:4]))
 	fmt.Printf("section size: %v\n", binary.BigEndian.Uint32(data[4:8]))
+	firstCharCount := binary.BigEndian.Uint16(data[8:10])
+	fmt.Printf("amount of FirstChars: %v\n", firstCharCount)
 
-	dataPos := 8
-	for dataPos < 3084 {
-		c := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
-		fmt.Printf("%v", string(c))
-		dataPos += 2
+	dataPos := 10
+	// firstCharCount = 1
+	// firstChar := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
+	// nextTableOffset := binary.BigEndian.Uint16(data[dataPos+2 : dataPos+4])
+	// // secondCharCount := binary.BigEndian.Uint16(data[dataPos+4 : dataPos+6])
+	// dataPos += 4
+
+	// fmt.Printf("Table %d, Char: '%v'\n", i, string(firstChar))
+	// fmt.Printf("next table offset: %v\n", nextTableOffset)
+	// fmt.Printf("second char count: %v\n", secondCharCount)
+
+	// tableData := data[dataPos:nextTableOffset]
+	e := int(firstCharCount)
+	for i := 0; i < e; i++ {
+		secondChar := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
+		kerningValue := binary.BigEndian.Uint16(data[dataPos+2 : dataPos+4])
+		dataPos += 4
+
+		// 	// secondChar := binary.LittleEndian.Uint16(tableData[dataPos : dataPos+2])
+		// 	// kerningValue := binary.LittleEndian.Uint16(tableData[dataPos+2 : dataPos+4])
+		// 	// dataPos += 4
+
+		// 	// secondChar := tableData[dataPos]
+		// 	// kerningValue := tableData[dataPos+1]
+		// 	// dataPos += 2
+
+		fmt.Printf("( '%s', %d )\n", string(secondChar), kerningValue)
+		// fmt.Printf("('%s', %s)\n", string(secondChar), string(kerningValue))
+
+		// fmt.Println()
+
 	}
+	fmt.Println(dataPos)
+
+	v := binary.BigEndian.Uint16(data[dataPos+2 : dataPos+4])
+	fmt.Println(v)
+	// fmt.Printf("kerning: %v\n", string(binary.BigEndian.Uint16(data[14:16])))
+
+	// dataPos := 8
+	// for dataPos < 3084 {
+	// 	c := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
+	// 	fmt.Printf("%v", string(c))
+	// 	dataPos += 2
+	// }
 
 	// cmap.CodeBegin = binary.BigEndian.Uint16(headerRaw[8:])
 	// cmap.CodeEnd = binary.BigEndian.Uint16(headerRaw[10:])
