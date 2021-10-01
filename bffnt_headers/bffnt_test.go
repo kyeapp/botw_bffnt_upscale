@@ -1,4 +1,4 @@
-package main
+package bffnt_headers
 
 import (
 	"os"
