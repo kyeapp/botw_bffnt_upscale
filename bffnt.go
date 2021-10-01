@@ -225,7 +225,7 @@ type TGLP_BFFNT struct { //    Offset  Size  Description
 	SheetHeight      uint16        // 0x1A    0x02  Sheet Height
 	SheetDataOffset  uint32        // 0x1C    0x04  Sheet Data Offset
 	AllSheetData     []byte        // raw bytes of all data sheets
-	SheetData        []image.Alpha // separated unswizzled images
+	SheetData        []image.NRGBA // separated unswizzled images
 }
 
 // Version 4 (BFFNT)
@@ -312,14 +312,9 @@ func (tglp *TGLP_BFFNT) decodeSheets() {
 	}
 
 	// imaging.FlipV returns an NRGBA image
-	imgFlipped := imaging.FlipV(alphaImg.SubImage(alphaImg.Rect))
+	img := imaging.FlipV(alphaImg.SubImage(alphaImg.Rect))
 
-	// convert back into alphaImg
-	for i := uint32(0); i < tglp.SheetSize; i++ {
-		alphaImg.Pix[i] = imgFlipped.Pix[4*i+3]
-	}
-
-	tglp.SheetData = append(tglp.SheetData, alphaImg)
+	tglp.SheetData = append(tglp.SheetData, *img)
 
 	// f, err := os.Create("outimage.png")
 	// handleErr(err)
@@ -358,7 +353,16 @@ func (tglp *TGLP_BFFNT) encodeHeader() []byte {
 
 // TODO
 func (tglp *TGLP_BFFNT) encodeSheets() []byte {
-	return nil
+	currentImage := tglp.SheetData[0]
+	img := imaging.FlipV(currentImage.SubImage(currentImage.Rect))
+
+	// convert back into alphaImg
+	res := make([]byte, tglp.SheetSize)
+	for i := 0; i < len(currentImage.Pix); i++ {
+		res[i] = img.Pix[4*i+3]
+	}
+
+	return res
 }
 
 func deswizzle(width uint, height uint, depth uint, height_ uint, format uint, aa uint, use uint, tileMode uint, swizzle_ uint, pitch uint, bpp uint, slice uint, sample uint, data []byte) []byte {
@@ -412,7 +416,6 @@ func swizzleSurface(width uint, height uint, depth uint, format uint, aa uint, u
 			// 	pos = computeSurfaceAddrFromCoordMacroTiled((uint)x, (uint)y, slice, sample, bpp, pitch, height, numSamples, (AddrTileMode)tileMode, IsDepth, pipeSwizzle, bankSwizzle);
 			swizzledPixelIndex = computeSwizzledPixelIndex(x, y, bpp, pitch, height, ADDR_TM_2D_TILED_THIN1, isDepth)
 			// }
-
 			var pixelIndex uint = (y*width + x) * bytesPerPixel
 			dataLen := (uint)(len(data))
 			if pixelIndex+bytesPerPixel <= dataLen && swizzledPixelIndex+bytesPerPixel <= dataLen {
@@ -831,7 +834,7 @@ type CMAP struct { //         Offset  Size  Description
 	CharacterIndexMap map[uint16]uint16
 }
 
-func (cmap *CMAP) decode(allRaw []byte, cmapOffset uint32) []CMAP {
+func (cmap *CMAP) decode(allRaw []byte, cmapOffset uint32) {
 	// CMAPOffset skips the first 8 bytes that contain the CMAP Magic Header
 	headerStart := int(cmapOffset - 8)
 	headerEnd := headerStart + CMAP_HEADER_SIZE
@@ -971,8 +974,6 @@ func (cmap *CMAP) decode(allRaw []byte, cmapOffset uint32) []CMAP {
 		fmt.Printf("pad %d bytes     %-8d to  %d\n", padding, dataPosEnd, dataPosEnd+padding)
 		fmt.Println()
 	}
-
-	return nil
 }
 
 func (cmap *CMAP) encode() []byte {
@@ -991,6 +992,61 @@ func decodeAllCmaps(allRaw []byte, offset uint32) []CMAP {
 	}
 
 	return res
+}
+
+type SecondChar struct {
+	secondChar   uint16
+	kerningValue uint16
+}
+
+type KRNG struct { // Offset  Size  Description
+	MagicHeader string // 0x00    0x04  Magic Header (KRNG)
+	SectionSize uint32 // 0x04    0x04  Section Size
+
+	KerningTable map[uint16][]SecondChar
+	// In order to save space, Nintendo represents the kerning pairs as a map of
+	// pair arrays. The key of the map is the first character of the pair. The
+	// pair is made up of the second character and the kerning value.
+	// visual example:
+	//
+	// First Character
+	//  |        +-------SecondChar
+	//  |        |    +--------------Kerning value
+	//  |        |    |
+	//  V        V    V
+	// [ A ] | [( V, -1 ), ( W, -1 ), ( Y, -1 )]
+	// [ L ] | [( V, -1 ), ( T, -1 ), ( W, -1 )]
+	// [ P ] | [( d, -2 ), ( g, -2 ), ( y, -1 )]
+}
+
+type BFFNT struct {
+	cfnt  CFNT
+	finf  FINF_BFFNT
+	tglp  TGLP_BFFNT
+	cwdh  CWDH
+	cmaps []CMAP
+	krng  KRNG
+}
+
+func (b *BFFNT) Load(bffntFile string) {
+	bffntRaw, err := ioutil.ReadFile(bffntFile)
+	handleErr(err)
+
+	b.cfnt.decode(bffntRaw)
+	// _ = cfnt.encode()
+
+	b.finf.decode(bffntRaw)
+	// _ = finf.encode()
+
+	b.tglp.decode(bffntRaw)
+	// _ = tglp.encodeHeader()
+	// _ = tglp.encodeSheets()
+
+	b.cwdh.decode(bffntRaw, b.finf.CWDHOffset)
+	// _ = cwdh.encode()
+
+	b.cmaps = decodeAllCmaps(bffntRaw, b.finf.CMAPOffset)
+
 }
 
 // This BFFNT file is Breath of the Wild's NormalS_00.bffnt. The goal of the
@@ -1015,27 +1071,8 @@ func main() {
 	flag.BoolVar(&debug, "d", false, "enable debug output")
 	flag.Parse()
 
-	bffntRaw, err := ioutil.ReadFile(testBffntFile)
-	handleErr(err)
-
-	var cfnt CFNT
-	cfnt.decode(bffntRaw)
-	_ = cfnt.encode()
-
-	var finf FINF_BFFNT
-	finf.decode(bffntRaw)
-	_ = finf.encode()
-
-	var tglp TGLP_BFFNT
-	tglp.decode(bffntRaw)
-	_ = tglp.encodeHeader()
-	_ = tglp.encodeSheets()
-
-	var cwdh CWDH
-	cwdh.decode(bffntRaw, finf.CWDHOffset)
-	_ = cwdh.encode()
-
-	_ = decodeAllCmaps(bffntRaw, finf.CMAPOffset)
+	var b BFFNT
+	b.Load(testBffntFile)
 
 	//KERNING TABLES WIP
 	// There are 3084 bytes left over
@@ -1056,6 +1093,9 @@ func main() {
 	// 0x0E    0x02  amount of second characters
 	// 0x10    0x02  second char in a pair
 	// 0x12    0x02  kerning value
+
+	bffntRaw, err := ioutil.ReadFile(testBffntFile)
+	handleErr(err)
 
 	pos := 536080 // KRNG start
 	data := bffntRaw[pos:]
