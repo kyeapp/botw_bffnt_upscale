@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 )
 
@@ -72,18 +73,6 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 			// fmt.Printf("direct %#U %d\n", rune(charCode), charIdx)
 		}
 
-		// totalBytesSoFar := int(headerStart) + CMAP_HEADER_SIZE + dataLen
-		// calculatedSectionSize := CMAP_HEADER_SIZE + dataLen + paddingToNext8ByteBoundary(totalBytesSoFar)
-
-		// calculatedSectionSize := CMAP_HEADER_SIZE + dataPos
-		// fmt.Println("calc section size", calculatedSectionSize)
-		// diff := int(cmap.SectionSize) - calculatedSectionSize
-		// fmt.Println("diff:", diff)
-		// for i := 0; i < diff; i++ {
-		// 	offsetFromData := CMAP_HEADER_SIZE + dataPos
-		// 	fmt.Println(offsetFromData+i, data[dataPos+i])
-		// }
-		// assertEqual(int(cmap.SectionSize), calculatedSectionSize)
 		break
 
 	// Table mapping is used when there are unused characters in between the
@@ -99,16 +88,6 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 
 			dataPos += 2
 		}
-
-		// calculatedSectionSize := CMAP_HEADER_SIZE + dataPos
-		// fmt.Println("calc section size", calculatedSectionSize)
-		// diff := int(cmap.SectionSize) - calculatedSectionSize
-		// fmt.Println("diff:", diff)
-		// for i := 0; i < diff; i++ {
-		// 	offsetFromData := CMAP_HEADER_SIZE + dataPos
-		// 	fmt.Println(offsetFromData+i, data[dataPos+i])
-		// }
-		// assertEqual(int(cmap.SectionSize), calculatedSectionSize)
 
 		break
 
@@ -132,27 +111,16 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 			dataPos += 4
 		}
 
-		// calculatedSectionSize := CMAP_HEADER_SIZE + dataPos
-		// fmt.Println("calc section size", calculatedSectionSize)
-		// diff := int(cmap.SectionSize) - calculatedSectionSize
-		// fmt.Println("diff:", diff)
-		// for i := 0; i < diff; i++ {
-		// 	offsetFromData := CMAP_HEADER_SIZE + dataPos
-		// 	fmt.Println(offsetFromData+i, data[dataPos+i])
-		// }
-		// assertEqual(int(cmap.SectionSize), calculatedSectionSize)
 		break
 
 	default:
-		panic("unknown mapping method")
+		handleErr(errors.New("unknown mapping method"))
 	}
 	cmap.CharAscii = asciiSlice
 	cmap.CharIndex = indexSlice
 
-	// fmt.Println("cmap padding start", headerStart+CMAP_HEADER_SIZE+dataPos)
-	// totalBytesSoFar := int(headerStart) + CMAP_HEADER_SIZE + dataLen
-	// fmt.Println("padding to next 8 byte boundary", paddingToNext8ByteBoundary(totalBytesSoFar))
-
+	leftoverData := data[dataPos:]
+	verifyLeftoverBytes(leftoverData)
 	assertEqual(len(cmap.CharAscii), len(cmap.CharIndex))
 
 	if Debug {
@@ -161,8 +129,7 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 		fmt.Println("Byte offsets start(inclusive) to end(exclusive)================")
 		fmt.Printf("header           %-8d to  %d\n", headerStart, headerEnd)
 		fmt.Printf("data calculated  %-8d to  %d\n", headerEnd, dataPosEnd)
-		padding := headerStart + int(cmap.SectionSize) - dataPosEnd
-		fmt.Printf("pad %d bytes     %-8d to  %d\n", padding, dataPosEnd, dataPosEnd+padding)
+		fmt.Printf("leftover bytes   %-8d to  %d\n", len(leftoverData), dataPosEnd, len(leftoverData))
 		fmt.Println()
 	}
 }

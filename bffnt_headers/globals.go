@@ -53,3 +53,20 @@ func pprint(s interface{}) {
 
 	fmt.Printf("%s\n", string(jsonBytes))
 }
+
+// It looks like in some cases there can be left over bytes from a section
+// after decoding is done. Not a significant amount. Usually 2, 4, or 6 bytes.
+// If these bytes are really unused we should expect them to be zero'd out.
+func verifyLeftoverBytes(leftovers []byte) {
+	if len(leftovers) > 0 {
+		fmt.Printf("There are %d bytes left over", len(leftovers))
+
+		for _, singleByte := range leftovers {
+			if singleByte != 0 {
+				fmt.Println("left over bytes:", leftovers)
+				err := fmt.Errorf("There are left over bytes that are not zero'd")
+				handleErr(err)
+			}
+		}
+	}
+}

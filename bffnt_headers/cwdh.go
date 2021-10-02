@@ -60,23 +60,22 @@ func (cwdh *CWDH) Decode(raw []byte, cwdhOffset uint32) {
 	// fmt.Println(hs + CWDH_HEADER_SIZE + 3*len(cwdh.Glyphs)) // 534326
 	// fmt.Println(dataEnd)                                    // 534328
 
+	leftoverData := data[dataPos:]
+	verifyLeftoverBytes(leftoverData)
+
 	totalBytesSoFar := int(headerStart) + CWDH_HEADER_SIZE + dataPos
 	calculatedCWDHSectionSize := CWDH_HEADER_SIZE + dataPos + paddingToNext8ByteBoundary(totalBytesSoFar)
 	assertEqual(int(cwdh.SectionSize), calculatedCWDHSectionSize)
 	assertEqual(int(cwdh.EndIndex+1), len(cwdh.Glyphs))
 
 	if Debug {
-		dataPosGlobal := headerEnd + dataPos
-		fmt.Printf("Read section total of %d bytes\n", dataPosGlobal-headerStart)
+		fmt.Printf("Read section total of %d bytes\n", dataPos-headerStart)
 		fmt.Println("Byte offsets start(inclusive) to end(exclusive)================")
 		fmt.Printf("header           %-8d to  %d\n", headerStart, headerEnd)
-		fmt.Printf("data calculated  %-8d to  %d\n", dataStart, dataPosGlobal)
-		padding := paddingToNext8ByteBoundary(totalBytesSoFar)
-		fmt.Printf("pad %d byte      %-8d to  %d\n", padding, dataPosGlobal, dataPosGlobal+padding)
+		fmt.Printf("data calculated  %-8d to  %d\n", dataStart, dataPos)
+		fmt.Printf("pad %d byte      %-8d to  %d\n", len(leftoverData), dataPos, dataPos+len(leftoverData))
 		fmt.Println()
 	}
-
-	//TODO decode more than 1 cwdh
 }
 
 // After every CWDH and CMAP section and its data is encoded. There is padding
