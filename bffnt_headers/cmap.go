@@ -207,7 +207,7 @@ func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 			binaryWrite(dataWriter, cmap.CharIndex[i])
 		}
 	}
-
+	dataWriter.Flush()
 	cmapData := cmapDataBuf.Bytes()
 
 	// Calculate and edit the header information
@@ -232,8 +232,8 @@ func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 	binaryWrite(w, cmap.Reserved)
 	binaryWrite(w, cmap.NextCMAPOffset)
 	_, _ = w.Write(cmapData)
-	w.Flush()
 
+	w.Flush()
 	return buf.Bytes()
 }
 

@@ -111,13 +111,11 @@ func (cwdh *CWDH) Encode(startOffset uint32, isLastCWDH bool) []byte {
 	// know the section size
 	for _, glyph := range cwdh.Glyphs {
 		binaryWrite(dataWriter, glyph.LeftWidth)
-		fmt.Println(glyph)
 		binaryWrite(dataWriter, glyph.GlyphWidth)
 		binaryWrite(dataWriter, glyph.CharWidth)
 	}
+	dataWriter.Flush()
 	glyphData := dataBuf.Bytes()
-	fmt.Println("glyphData:", len(glyphData))
-	fmt.Println(glyphData)
 
 	// Calculate and edit the header information
 	cwdh.SectionSize = uint32(CWDH_HEADER_SIZE + len(glyphData))

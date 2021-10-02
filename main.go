@@ -50,12 +50,24 @@ func (b *BFFNT) Encode() []byte {
 
 	krngRaw := b.KRNG.Encode(bffntRaw)
 
-	fmt.Println(len(cfntRaw))
-	fmt.Println(len(finfRaw))
-	fmt.Println(len(tglpRaw))
-	fmt.Println(len(cwdhsRaw)) // this doesn't look right
-	fmt.Println(len(cmapsRaw)) // this doesn't look right
-	fmt.Println(len(krngRaw))
+	totalBytes := 0
+	totalBytes += len(cfntRaw)
+	fmt.Println("bytes written so far:", totalBytes)
+
+	totalBytes += len(finfRaw)
+	fmt.Println("bytes written so far:", totalBytes)
+
+	totalBytes += len(tglpRaw)
+	fmt.Println("bytes written so far:", totalBytes)
+
+	totalBytes += len(cwdhsRaw)
+	fmt.Println("bytes written so far:", totalBytes)
+
+	totalBytes += len(cmapsRaw)
+	fmt.Println("bytes written so far:", totalBytes)
+
+	totalBytes += len(krngRaw)
+	fmt.Println("bytes written so far:", totalBytes)
 
 	res = append(res, cfntRaw...)
 	res = append(res, finfRaw...)

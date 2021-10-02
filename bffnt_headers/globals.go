@@ -1,10 +1,10 @@
 package bffnt_headers
 
 import (
+	"bufio"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"io"
 	"runtime/debug"
 )
 
@@ -26,7 +26,8 @@ const (
 
 func assertEqual(expected int, actual int) {
 	if expected != actual {
-		panic(fmt.Errorf("%d(actual) does not equal %d(expected)\n", actual, expected))
+		err := fmt.Errorf("%d(actual) does not equal %d(expected)\n", actual, expected)
+		handleErr(err)
 	}
 }
 
@@ -38,11 +39,12 @@ func handleErr(err error) {
 }
 
 // Just a wrapper around binary.Write
-func binaryWrite(w io.Writer, data interface{}) {
+func binaryWrite(w *bufio.Writer, data interface{}) {
 	err := binary.Write(w, binary.BigEndian, data)
-	if err != nil {
-		panic(err)
-	}
+	handleErr(err)
+
+	// just call every time. its easy to forget and end up with missing bytes
+	w.Flush()
 }
 
 func pprint(s interface{}) {

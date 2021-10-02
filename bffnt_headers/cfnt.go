@@ -57,11 +57,11 @@ func (cfnt *CFNT) Encode() []byte {
 	w := bufio.NewWriter(&buf)
 
 	_, _ = w.Write([]byte(cfnt.MagicHeader))
-	_ = binary.Write(w, binary.BigEndian, cfnt.Endianness)
-	_ = binary.Write(w, binary.BigEndian, cfnt.SectionSize)
-	_ = binary.Write(w, binary.BigEndian, cfnt.Version)
-	_ = binary.Write(w, binary.BigEndian, cfnt.TotalFileSize)
-	_ = binary.Write(w, binary.BigEndian, cfnt.BlockReadNum)
+	binaryWrite(w, cfnt.Endianness)
+	binaryWrite(w, cfnt.SectionSize)
+	binaryWrite(w, cfnt.Version)
+	binaryWrite(w, cfnt.TotalFileSize)
+	binaryWrite(w, cfnt.BlockReadNum)
 	w.Flush()
 
 	assertEqual(CFNT_HEADER_SIZE, len(buf.Bytes()))
