@@ -39,16 +39,23 @@ func (b *BFFNT) Encode() []byte {
 	res := make([]byte, 0)
 
 	cfntRaw := b.CFNT.Encode()
-	finfRaw := b.FINF.Encode()
 	tglpRaw := b.TGLP.Encode()
 
-	cwdhStartOffset := len(cfntRaw) + len(finfRaw) + len(tglpRaw)
+	cwdhStartOffset := bffnt_headers.CFNT_HEADER_SIZE + bffnt_headers.FINF_HEADER_SIZE + len(tglpRaw)
 	cwdhsRaw := bffnt_headers.EncodeCWDHs(b.CWDHs, cwdhStartOffset)
 
 	cmapStartOffset := cwdhStartOffset + len(cwdhsRaw)
 	cmapsRaw := bffnt_headers.EncodeCMAPs(b.CMAPs, cmapStartOffset)
+	fmt.Println("==================================")
+	// _ = bffnt_headers.DecodeCMAPs(cmapsRaw, 8)
 
 	krngRaw := b.KRNG.Encode(bffntRaw)
+
+	// finf is encoded last because it needs to know the size of tglp and cwdhs to calculate offsets
+	tglpOffset := bffnt_headers.CFNT_HEADER_SIZE + bffnt_headers.FINF_HEADER_SIZE
+	cwdhOffset := tglpOffset + len(tglpRaw)
+	cmapOffset := cwdhOffset + len(cwdhsRaw)
+	finfRaw := b.FINF.Encode(tglpOffset+8, cwdhOffset+8, cmapOffset+8)
 
 	totalBytes := 0
 	totalBytes += len(cfntRaw)
@@ -87,7 +94,7 @@ const (
 	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/Special/Special_00.bffnt"
 	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/Caption/Caption_00.bffnt"
 	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/Normal/Normal_00.bffnt"
-	testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/NormalS/NormalS_00.bffnt"
+	testBffntFile = "/home/kyeap/workspace/bffnt/WiiU_fonts/botw/NormalS/NormalS_00.bffnt"
 	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/External/External_00.bffnt"
 
 	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/comicfont/Normal_00.bffnt"
@@ -105,6 +112,13 @@ func main() {
 	bffnt.Load(testBffntFile)
 
 	bffntBytes := bffnt.Encode()
+
+	// b.CFNT.Decode(bffntRaw)
+	// b.FINF.Decode(bffntRaw)
+	// b.TGLP.Decode(bffntRaw)
+	// b.CWDHs = bffnt_headers.DecodeCWDHs(bffntRaw, b.FINF.CWDHOffset)
+	// b.CMAPs = bffnt_headers.DecodeCMAPs(bffntRaw, b.FINF.CMAPOffset)
+	// b.KRNG.Decode(bffntRaw)
 
 	err := os.WriteFile("output.bffnt", bffntBytes, 0644)
 	if err != nil {

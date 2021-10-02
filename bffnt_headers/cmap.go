@@ -27,8 +27,7 @@ type CMAP struct { //         Offset  Size  Description
 }
 
 func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
-	// CMAPOffset skips the first 8 bytes that contain the CMAP Magic Header
-	headerStart := int(cmapOffset - 8)
+	headerStart := int(cmapOffset) - 8
 	headerEnd := headerStart + CMAP_HEADER_SIZE
 	headerRaw := allRaw[headerStart:headerEnd]
 
@@ -129,15 +128,15 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 		fmt.Println("Byte offsets start(inclusive) to end(exclusive)================")
 		fmt.Printf("header           %-8d to  %d\n", headerStart, headerEnd)
 		fmt.Printf("data calculated  %-8d to  %d\n", headerEnd, dataPosEnd)
-		fmt.Printf("leftover bytes   %-8d to  %d\n", len(leftoverData), dataPosEnd, len(leftoverData))
+		fmt.Printf("leftover bytes   %-8d to  %d\n", dataPosEnd, dataPosEnd+len(leftoverData))
 		fmt.Println()
 	}
 }
 
-func DecodeCMAPs(allRaw []byte, FINF_CMAP_Offset uint32) []CMAP {
+func DecodeCMAPs(allRaw []byte, startingOffset uint32) []CMAP {
 	res := make([]CMAP, 0)
 
-	offset := FINF_CMAP_Offset
+	offset := startingOffset
 	for offset != 0 {
 		var currentCMAP CMAP
 		currentCMAP.Decode(allRaw, offset)
@@ -179,8 +178,8 @@ func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 
 	// Calculate and edit the header information
 	cmap.SectionSize = uint32(CMAP_HEADER_SIZE + len(cmapData))
-	// + 8 bytes to skip the next CWDH magic header and section size
-	cmap.NextCMAPOffset = uint32(int(startOffset) + CMAP_HEADER_SIZE + len(cmapData) + 8)
+	// Assume the startOffset already had +8 added to it to skip the magic header
+	cmap.NextCMAPOffset = uint32(int(startOffset) + CMAP_HEADER_SIZE + len(cmapData))
 
 	if isLastCMAP {
 		// terminate cmap list by setting offset to 0
@@ -207,7 +206,10 @@ func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 func EncodeCMAPs(CMAPs []CMAP, startingOffset int) []byte {
 	res := make([]byte, 0)
 
-	offset := uint32(startingOffset)
+	// Offset to write should have 8 bytes added to it to skip the magic header
+	// since cmap is a recursive structure, all cmap's NextCMAPOffset will be
+	// correctly offset by 8
+	offset := uint32(startingOffset) + 8
 	for i, currentCMAP := range CMAPs {
 		isLast := false
 		if i == len(CMAPs)-1 {

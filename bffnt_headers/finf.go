@@ -57,9 +57,13 @@ func (finf *FINF) Decode(raw []byte) {
 	}
 }
 
-func (finf *FINF) Encode() []byte {
+func (finf *FINF) Encode(tglpOffset int, cwdhOffset int, cmapOffset int) []byte {
 	var buf bytes.Buffer
 	w := bufio.NewWriter(&buf)
+
+	finf.TGLPOffset = uint32(tglpOffset)
+	finf.CWDHOffset = uint32(cwdhOffset)
+	finf.CMAPOffset = uint32(cmapOffset)
 
 	_, _ = w.Write([]byte(finf.MagicHeader))
 	binaryWrite(w, finf.SectionSize)

@@ -28,10 +28,11 @@ type glyphInfo struct {
 }
 
 func (cwdh *CWDH) Decode(raw []byte, cwdhOffset uint32) {
-	// FINF.CWDHOffset skips the first 8 bytes that contain the CWDH Magic Header
-	headerStart := int(cwdhOffset - 8)
+	headerStart := int(cwdhOffset) - 8
 	headerEnd := headerStart + CWDH_HEADER_SIZE
 	headerBytes := raw[headerStart:headerEnd]
+	fmt.Println(headerStart)
+	fmt.Println(headerEnd)
 	cwdh.DecodeHeader(headerBytes)
 
 	// Character width data is read in tuples of 3 bytes.  The glyph width info
@@ -73,7 +74,7 @@ func (cwdh *CWDH) Decode(raw []byte, cwdhOffset uint32) {
 		fmt.Println("Byte offsets start(inclusive) to end(exclusive)================")
 		fmt.Printf("header           %-8d to  %d\n", headerStart, headerEnd)
 		fmt.Printf("data calculated  %-8d to  %d\n", dataStart, dataPos)
-		fmt.Printf("pad %d byte      %-8d to  %d\n", len(leftoverData), dataPos, dataPos+len(leftoverData))
+		fmt.Printf("leftover bytes   %-8d to  %d\n", dataPos, dataPos+len(leftoverData))
 		fmt.Println()
 	}
 }
@@ -100,6 +101,24 @@ func (cwdh *CWDH) DecodeHeader(raw []byte) {
 	}
 }
 
+func DecodeCWDHs(allRaw []byte, startingOffset uint32) []CWDH {
+	res := make([]CWDH, 0)
+
+	offset := startingOffset
+	i := 0
+	for offset != 0 {
+		fmt.Println("i", i)
+		i++
+		var currentCWDH CWDH
+		currentCWDH.Decode(allRaw, offset)
+		res = append(res, currentCWDH)
+
+		offset = currentCWDH.NextCWDHOffset
+	}
+
+	return res
+}
+
 // Encodes a single cwdh.
 // The start offset passed in should be the total number of bytes written so far
 func (cwdh *CWDH) Encode(startOffset uint32, isLastCWDH bool) []byte {
@@ -123,8 +142,9 @@ func (cwdh *CWDH) Encode(startOffset uint32, isLastCWDH bool) []byte {
 	if isLastCWDH {
 		cwdh.NextCWDHOffset = 0
 	} else {
-		// + 8 bytes to skip the next CWDH magic header and section size
-		cwdh.NextCWDHOffset = uint32(int(startOffset) + CWDH_HEADER_SIZE + len(glyphData) + 8)
+		// CMAP is a recursive structure, the +8 bytes should have been added
+		// already to make calculations easier
+		cwdh.NextCWDHOffset = uint32(int(startOffset) + CWDH_HEADER_SIZE + len(glyphData))
 	}
 
 	var buf bytes.Buffer
@@ -142,27 +162,14 @@ func (cwdh *CWDH) Encode(startOffset uint32, isLastCWDH bool) []byte {
 	return buf.Bytes()
 }
 
-func DecodeCWDHs(allRaw []byte, FINF_CWDH_Offset uint32) []CWDH {
-	res := make([]CWDH, 0)
-
-	offset := FINF_CWDH_Offset
-	for offset != 0 {
-		var currentCWDH CWDH
-		currentCWDH.Decode(allRaw, offset)
-		res = append(res, currentCWDH)
-
-		offset = currentCWDH.NextCWDHOffset
-	}
-
-	return res
-}
-
 func EncodeCWDHs(CWDHs []CWDH, startingOffset int) []byte {
 	res := make([]byte, 0)
 
-	offset := uint32(startingOffset)
+	// Offset to write should have 8 bytes added to it to skip the magic header
+	// since cwdh is a recursive structure all cwdh maps encoded will be
+	// correctly offset by 8
+	offset := uint32(startingOffset) + 8
 	for i, currentCWDH := range CWDHs {
-		// Check if last CWDH. The last one will have a NextCWDHOffset of 0
 		isLast := false
 		if i == len(CWDHs)-1 {
 			isLast = true
