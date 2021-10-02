@@ -21,12 +21,7 @@ type BFFNT struct {
 var bffntRaw []byte
 var err error
 
-func (b *BFFNT) Load(bffntFile string) {
-	bffntRaw, err = ioutil.ReadFile(bffntFile)
-	if err != nil {
-		panic(err)
-	}
-
+func (b *BFFNT) Decode(bffntRaw []byte) {
 	b.CFNT.Decode(bffntRaw)
 	b.FINF.Decode(bffntRaw)
 	b.TGLP.Decode(bffntRaw)
@@ -108,22 +103,22 @@ func main() {
 	flag.BoolVar(&bffnt_headers.Debug, "d", false, "enable debug output")
 	flag.Parse()
 
-	var bffnt BFFNT
-	bffnt.Load(testBffntFile)
-
-	bffntBytes := bffnt.Encode()
-
-	// b.CFNT.Decode(bffntRaw)
-	// b.FINF.Decode(bffntRaw)
-	// b.TGLP.Decode(bffntRaw)
-	// b.CWDHs = bffnt_headers.DecodeCWDHs(bffntRaw, b.FINF.CWDHOffset)
-	// b.CMAPs = bffnt_headers.DecodeCMAPs(bffntRaw, b.FINF.CMAPOffset)
-	// b.KRNG.Decode(bffntRaw)
-
-	err := os.WriteFile("output.bffnt", bffntBytes, 0644)
+	bffntRaw, err = ioutil.ReadFile(testBffntFile)
 	if err != nil {
 		panic(err)
 	}
+
+	var bffnt BFFNT
+	bffnt.Decode(bffntRaw)
+
+	encodedRaw := bffnt.Encode()
+
+	err := os.WriteFile("output.bffnt", encodedRaw, 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	bffnt.Decode(encodedRaw)
 
 	return
 }

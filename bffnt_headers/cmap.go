@@ -20,6 +20,7 @@ type CMAP struct { //         Offset  Size  Description
 	Reserved       uint16 // 0x0E    0x02  Reserved?
 	NextCMAPOffset uint32 // 0x10    0x04  Next CMAP Offset
 
+	CharacterOffset uint16 // used for direct maps
 	// This is a pair of arrays that hold the ascii and it's index in the font
 	// texture.
 	CharAscii []uint16
@@ -41,9 +42,9 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 	cmap.Reserved = binary.BigEndian.Uint16(headerRaw[14:16])
 	cmap.NextCMAPOffset = binary.BigEndian.Uint32(headerRaw[16:CMAP_HEADER_SIZE])
 
-	if Debug {
-		pprint(cmap)
-	}
+	// if Debug {
+	// 	pprint(cmap)
+	// }
 
 	dataEnd := headerStart + int(cmap.SectionSize)
 	data := allRaw[headerEnd:dataEnd]
@@ -52,17 +53,18 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 	indexSlice := make([]uint16, 0)
 	asciiSlice := make([]uint16, 0)
 	// Direct mapping is the most space efficient of mapping type. It is used
-	// if all the characters in the range are to be indexed. The reserved data
-	// is characterOffset. Character offset is needed if the direct map is not
-	// the first map to be read. Instead of storing any additional daata other
-	// than the header, bytes are saved by just storing an offset and
-	// calculating the index based on the character's ascii code. With each new
-	// character in a direct character map, the character's index is
-	// incremented by 1. The character offset should be equal to the total
-	// number of characters indexed from previous CMAPs.
+	// if all the characters in the range are to be indexed. Character offset
+	// is needed if the direct map is not the first map to be read. Instead of
+	// storing any additional daata other than the header, bytes are saved by
+	// just storing an offset and calculating the index based on the
+	// character's ascii code. With each new character in a direct character
+	// map, the character's index is incremented by 1. The character offset
+	// should be equal to the total number of characters indexed from previous
+	// CMAPs.
 	switch cmap.MappingMethod {
 	case 0:
-		characterOffset := cmap.Reserved
+		characterOffset := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
+		dataPos += 2
 		for i := cmap.CodeBegin; i <= cmap.CodeEnd; i++ {
 			charAsciiCode := i
 			charIndex := i - cmap.CodeBegin + characterOffset
@@ -123,6 +125,9 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 	assertEqual(len(cmap.CharAscii), len(cmap.CharIndex))
 
 	if Debug {
+		pprint(cmap)
+	}
+	if Debug {
 		dataPosEnd := headerEnd + dataPos
 		fmt.Printf("Read section total of %d bytes\n", dataPosEnd-headerStart)
 		fmt.Println("Byte offsets start(inclusive) to end(exclusive)================")
@@ -158,10 +163,8 @@ func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 	// know the section size
 	switch cmap.MappingMethod {
 	case 0:
-		// no data to encode
+		binaryWrite(dataWriter, cmap.CharacterOffset)
 	case 1:
-		// first uint16 is amount of indexes
-		binaryWrite(dataWriter, uint16(len(cmap.CharIndex)))
 		for i, _ := range cmap.CharIndex {
 			binaryWrite(dataWriter, cmap.CharIndex[i])
 		}
@@ -196,6 +199,7 @@ func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 	binaryWrite(w, cmap.CodeEnd)
 	binaryWrite(w, cmap.MappingMethod)
 	binaryWrite(w, cmap.Reserved)
+	fmt.Println("encode cmap Reserved:", cmap.Reserved)
 	binaryWrite(w, cmap.NextCMAPOffset)
 	_, _ = w.Write(cmapData)
 

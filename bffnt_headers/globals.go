@@ -48,7 +48,8 @@ func binaryWrite(w *bufio.Writer, data interface{}) {
 }
 
 func pprint(s interface{}) {
-	jsonBytes, err := json.MarshalIndent(s, "", "  ")
+	// jsonBytes, err := json.MarshalIndent(s, "", "  ")
+	jsonBytes, err := json.Marshal(s)
 	handleErr(err)
 
 	fmt.Printf("%s\n", string(jsonBytes))

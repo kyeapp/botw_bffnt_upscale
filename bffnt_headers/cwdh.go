@@ -64,9 +64,9 @@ func (cwdh *CWDH) Decode(raw []byte, cwdhOffset uint32) {
 	leftoverData := data[dataPos:]
 	verifyLeftoverBytes(leftoverData)
 
-	totalBytesSoFar := int(headerStart) + CWDH_HEADER_SIZE + dataPos
-	calculatedCWDHSectionSize := CWDH_HEADER_SIZE + dataPos + paddingToNext8ByteBoundary(totalBytesSoFar)
-	assertEqual(int(cwdh.SectionSize), calculatedCWDHSectionSize)
+	// totalBytesSoFar := int(headerStart) + CWDH_HEADER_SIZE + dataPos
+	// calculatedCWDHSectionSize := CWDH_HEADER_SIZE + dataPos // + paddingToNext8ByteBoundary(totalBytesSoFar)
+	// assertEqual(int(cwdh.SectionSize), calculatedCWDHSectionSize)
 	assertEqual(int(cwdh.EndIndex+1), len(cwdh.Glyphs))
 
 	if Debug {
