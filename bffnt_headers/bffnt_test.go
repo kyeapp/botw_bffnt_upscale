@@ -14,7 +14,7 @@ var (
 func defineTestBFFNTs() {
 	// Breath of the Wild v1.6.0
 	var b BFFNT
-	BOTW_NormalS = b.Load("/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/NormalS/NormalS_00.bffnt")
+	BOTW_NormalS = b.Load("/home/kyeap/workspace/bffnt/WiiU_fonts/botw/NormalS/NormalS_00.bffnt")
 
 	// BOTW_NormalS = test_bffnt{
 	// 	cfnt:       []byte{70, 70, 78, 84, 254, 255, 0, 20, 3, 0, 0, 0, 0, 8, 58, 28, 0, 9, 0, 0},

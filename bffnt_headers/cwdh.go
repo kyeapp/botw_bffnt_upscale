@@ -103,18 +103,21 @@ func (cwdh *CWDH) DecodeHeader(raw []byte) {
 
 // Encodes a single cwdh.
 // The start offset passed in should be the total number of bytes written so far
-func (cwdh *CWDH) encode(startOffset uint32, isLastCWDH bool) []byte {
-	var glyphBuf bytes.Buffer
-	gw := bufio.NewWriter(&glyphBuf)
+func (cwdh *CWDH) Encode(startOffset uint32, isLastCWDH bool) []byte {
+	var dataBuf bytes.Buffer
+	dataWriter := bufio.NewWriter(&dataBuf)
 
 	// encode cwdh data. We need to know the length of the raw glyph data to
 	// know the section size
 	for _, glyph := range cwdh.Glyphs {
-		binaryWrite(gw, glyph.LeftWidth)
-		binaryWrite(gw, glyph.GlyphWidth)
-		binaryWrite(gw, glyph.CharWidth)
+		binaryWrite(dataWriter, glyph.LeftWidth)
+		fmt.Println(glyph)
+		binaryWrite(dataWriter, glyph.GlyphWidth)
+		binaryWrite(dataWriter, glyph.CharWidth)
 	}
-	glyphData := glyphBuf.Bytes()
+	glyphData := dataBuf.Bytes()
+	fmt.Println("glyphData:", len(glyphData))
+	fmt.Println(glyphData)
 
 	// Calculate and edit the header information
 	cwdh.SectionSize = uint32(CWDH_HEADER_SIZE + len(glyphData))
@@ -168,7 +171,7 @@ func EncodeCWDHs(CWDHs []CWDH, startingOffset int) []byte {
 			isLast = true
 		}
 
-		cwdhBytes := currentCWDH.encode(offset, isLast)
+		cwdhBytes := currentCWDH.Encode(offset, isLast)
 
 		res = append(res, cwdhBytes...)
 		offset = currentCWDH.NextCWDHOffset

@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 
@@ -49,12 +50,19 @@ func (b *BFFNT) Encode() []byte {
 
 	krngRaw := b.KRNG.Encode(bffntRaw)
 
-	res = append(cfntRaw, cfntRaw...)
-	res = append(finfRaw, finfRaw...)
-	res = append(tglpRaw, tglpRaw...)
-	res = append(cwdhsRaw, cwdhsRaw...)
-	res = append(cmapsRaw, cmapsRaw...)
-	res = append(krngRaw, krngRaw...)
+	fmt.Println(len(cfntRaw))
+	fmt.Println(len(finfRaw))
+	fmt.Println(len(tglpRaw))
+	fmt.Println(len(cwdhsRaw)) // this doesn't look right
+	fmt.Println(len(cmapsRaw)) // this doesn't look right
+	fmt.Println(len(krngRaw))
+
+	res = append(res, cfntRaw...)
+	res = append(res, finfRaw...)
+	res = append(res, tglpRaw...)
+	res = append(res, cwdhsRaw...)
+	res = append(res, cmapsRaw...)
+	res = append(res, krngRaw...)
 
 	return res
 }

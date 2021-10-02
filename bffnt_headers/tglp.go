@@ -156,6 +156,8 @@ func (tglp *TGLP) Encode() []byte {
 	res = append(res, padding...)
 	res = append(res, allSheetData...)
 
+	assertEqual(int(tglp.SheetDataOffset), CFNT_HEADER_SIZE+FINF_HEADER_SIZE+TGLP_HEADER_SIZE+len(padding))
+	assertEqual(int(tglp.SectionSize), len(res))
 	return res
 }
 
