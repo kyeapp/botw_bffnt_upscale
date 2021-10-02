@@ -168,15 +168,16 @@ func (cmap *CMAP) encode() []byte {
 	return nil
 }
 
-func DecodeAllCmaps(allRaw []byte, offset uint32) []CMAP {
+func DecodeCMAPs(allRaw []byte, FINF_CMAP_Offset uint32) []CMAP {
 	res := make([]CMAP, 0)
 
+	offset := FINF_CMAP_Offset
 	for offset != 0 {
-		var currentCmap CMAP
-		currentCmap.Decode(allRaw, offset)
-		res = append(res, currentCmap)
+		var currentCMAP CMAP
+		currentCMAP.Decode(allRaw, offset)
+		res = append(res, currentCMAP)
 
-		offset = currentCmap.NextCMAPOffset
+		offset = currentCMAP.NextCMAPOffset
 	}
 
 	return res

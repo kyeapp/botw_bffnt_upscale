@@ -16,27 +16,42 @@ type BFFNT struct {
 	KRNG  bffnt_headers.KRNG
 }
 
+var bffntRaw []byte
+var err error
+
 func (b *BFFNT) Load(bffntFile string) {
-	bffntRaw, err := ioutil.ReadFile(bffntFile)
+	bffntRaw, err = ioutil.ReadFile(bffntFile)
 	if err != nil {
 		panic(err)
 	}
 
 	b.CFNT.Decode(bffntRaw)
-	// _ = cfnt.encode()
-
 	b.FINF.Decode(bffntRaw)
-	// _ = finf.encode()
-
 	b.TGLP.Decode(bffntRaw)
-	// _ = tglp.encodeHeader()
-	// _ = tglp.encodeSheets()
+	b.CWDHs = bffnt_headers.DecodeCWDHs(bffntRaw, b.FINF.CWDHOffset)
+	b.CMAPs = bffnt_headers.DecodeCMAPs(bffntRaw, b.FINF.CMAPOffset)
+	b.KRNG.Decode(bffntRaw)
+}
 
-	// b.cwdhs.Decode(bffntRaw, b.finf.CWDHOffset)
-	// _ = cwdh.encode()
+func (b *BFFNT) Encode() []byte {
+	res := make([]byte, 0)
 
-	b.CMAPs = bffnt_headers.DecodeAllCmaps(bffntRaw, b.FINF.CMAPOffset)
+	cfntRaw := b.CFNT.Encode()
+	finfRaw := b.FINF.Encode()
+	tglpRaw := b.TGLP.Encode()
+	cwdhStartOffset := len(cfntRaw) + len(finfRaw) + len(tglpRaw)
+	cwdhsRaw := bffnt_headers.EncodeCWDHs(b.CWDHs, cwdhStartOffset)
+	// cmapRaw := EncodeCMAPs()
+	krngRaw := b.KRNG.Encode(bffntRaw)
 
+	res = append(cfntRaw, cfntRaw...)
+	res = append(finfRaw, finfRaw...)
+	res = append(tglpRaw, tglpRaw...)
+	res = append(cwdhsRaw, cwdhsRaw...)
+	// res = append(cmapsRaw, cmapsRaw...)
+	res = append(krngRaw, krngRaw...)
+
+	return res
 }
 
 // This BFFNT file is Breath of the Wild's NormalS_00.bffnt. The goal of the
@@ -58,12 +73,13 @@ const (
 )
 
 func main() {
-
 	flag.BoolVar(&bffnt_headers.Debug, "d", false, "enable debug output")
 	flag.Parse()
 
-	var b BFFNT
-	b.Load(testBffntFile)
+	var bffnt BFFNT
+	bffnt.Load(testBffntFile)
+
+	_ = bffnt.Encode()
 
 	return
 }

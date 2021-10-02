@@ -10,8 +10,8 @@ import (
 type CWDH struct { //        Offset  Size  Description
 	MagicHeader    string // 0x00    0x04  Magic Header (CWDH)
 	SectionSize    uint32 // 0x04    0x04  Section Size
-	StartIndex     uint16 // 0x08    0x02  Start Index
-	EndIndex       uint16 // 0x0A    0x02  End Index
+	StartIndex     uint16 // 0x08    0x02  Start Index, typically 0?
+	EndIndex       uint16 // 0x0A    0x02  End Index, number of glyphs - 1?
 	NextCWDHOffset uint32 // 0x0C    0x04  Next CWDH Offset
 	Glyphs         []glyphInfo
 
@@ -27,12 +27,12 @@ type glyphInfo struct {
 	CharWidth  int8
 }
 
-func (cwdh *CWDH) decode(raw []byte, cwdhOffset uint32) {
+func (cwdh *CWDH) Decode(raw []byte, cwdhOffset uint32) {
 	// FINF.CWDHOffset skips the first 8 bytes that contain the CWDH Magic Header
 	headerStart := int(cwdhOffset - 8)
 	headerEnd := headerStart + CWDH_HEADER_SIZE
 	headerBytes := raw[headerStart:headerEnd]
-	cwdh.decodeHeader(headerBytes)
+	cwdh.DecodeHeader(headerBytes)
 
 	// Character width data is read in tuples of 3 bytes.  The glyph width info
 	// is ordered corresponding to a character index.
@@ -87,7 +87,7 @@ func paddingToNext8ByteBoundary(dataLen int) int {
 	return 8 - dataLen%8
 }
 
-func (cwdh *CWDH) decodeHeader(raw []byte) {
+func (cwdh *CWDH) DecodeHeader(raw []byte) {
 	assertEqual(CWDH_HEADER_SIZE, len(raw))
 
 	cwdh.MagicHeader = string(raw[0:4])
@@ -101,20 +101,80 @@ func (cwdh *CWDH) decodeHeader(raw []byte) {
 	}
 }
 
-func (cwdh *CWDH) encode() []byte {
+// Encodes a single cwdh.
+// The start offset passed in should be the
+func (cwdh *CWDH) encode(startOffset uint32, isLastCWDH bool) []byte {
+	var glyphBuf bytes.Buffer
+	gw := bufio.NewWriter(&glyphBuf)
+
+	// encode cwdh data. We need to know the length of the raw glyph data to
+	// know the section size
+	for _, glyph := range cwdh.Glyphs {
+		binaryWrite(gw, glyph.LeftWidth)
+		binaryWrite(gw, glyph.GlyphWidth)
+		binaryWrite(gw, glyph.CharWidth)
+	}
+	glyphData := glyphBuf.Bytes()
+
+	// Calculate and edit the header information
+	cwdh.SectionSize = uint32(CWDH_HEADER_SIZE + len(glyphData))
+	cwdh.StartIndex = uint16(0)
+	cwdh.EndIndex = uint16(len(cwdh.Glyphs) - 1)
+	if isLastCWDH {
+		cwdh.NextCWDHOffset = 0
+	} else {
+		// + 8 bytes to skip the next CWDH magic header and section size
+		cwdh.NextCWDHOffset = uint32(int(startOffset) + CWDH_HEADER_SIZE + len(glyphData) + 8)
+	}
+
 	var buf bytes.Buffer
 	w := bufio.NewWriter(&buf)
 
+	// Write raw data of the header and data
 	_, _ = w.Write([]byte(cwdh.MagicHeader))
-	_ = binary.Write(w, binary.BigEndian, cwdh.SectionSize)
-	_ = binary.Write(w, binary.BigEndian, cwdh.StartIndex)
-	_ = binary.Write(w, binary.BigEndian, cwdh.EndIndex)
-	_ = binary.Write(w, binary.BigEndian, cwdh.NextCWDHOffset)
+	binaryWrite(w, cwdh.SectionSize)
+	binaryWrite(w, cwdh.StartIndex)
+	binaryWrite(w, cwdh.EndIndex)
+	binaryWrite(w, cwdh.NextCWDHOffset)
+	_, _ = w.Write(glyphData)
 	w.Flush()
 
-	assertEqual(CWDH_HEADER_SIZE, len(buf.Bytes()))
-
-	// encode cwdh data
-
 	return buf.Bytes()
+}
+
+func DecodeCWDHs(allRaw []byte, FINF_CWDH_Offset uint32) []CWDH {
+	res := make([]CWDH, 0)
+
+	offset := FINF_CWDH_Offset
+	for offset != 0 {
+		var currentCWDH CWDH
+		currentCWDH.Decode(allRaw, offset)
+		res = append(res, currentCWDH)
+
+		offset = currentCWDH.NextCWDHOffset
+	}
+
+	return res
+}
+
+func EncodeCWDHs(CWDHs []CWDH, startingOffset int) []byte {
+	res := make([]byte, 0)
+
+	offset := uint32(startingOffset)
+	for i, currentCWDH := range CWDHs {
+		// Check if last CWDH. The last one will have a NextCWDHOffset of 0
+		isLast := false
+		if i == len(CWDHs)-1 {
+			isLast = true
+		}
+
+		cwdhBytes := currentCWDH.encode(offset, isLast)
+
+		res = append(res, cwdhBytes...)
+		offset = currentCWDH.NextCWDHOffset
+	}
+
+	// possible TODO? pad to the next 8 byte boundary
+
+	return res
 }

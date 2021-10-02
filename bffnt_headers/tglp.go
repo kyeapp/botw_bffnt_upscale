@@ -69,14 +69,7 @@ func (tglp *TGLP) Decode(raw []byte) {
 	dataEnd := dataStart + totalSheetDataSize
 	tglp.AllSheetData = raw[dataStart:dataEnd]
 
-	// NOT TO SCALE representation of a portion of the bffnt file in raw bytes
-	// for visual purposes
-	//                      |-------------TGLP section size---------------------------|
-	// CFNT   FINF          TGLP header    padding              tglp SheetDataOffset
-	// |      |             |              |                    |
-	// aaaaaa bbbbbbbbbbbbb cccccccccccccc 00000000000000000000 ddddddddddddddddddddddd
-	padding := int(tglp.SheetDataOffset) - CFNT_HEADER_SIZE - FINF_HEADER_SIZE - TGLP_HEADER_SIZE
-	calculatedTGLPSectionSize := TGLP_HEADER_SIZE + padding + len(tglp.AllSheetData)
+	calculatedTGLPSectionSize := TGLP_HEADER_SIZE + tglp.computePredataPadding() + len(tglp.AllSheetData)
 	assertEqual(int(tglp.SectionSize), calculatedTGLPSectionSize)
 
 	tglp.DecodeSheets()
@@ -150,7 +143,20 @@ func (tglp *TGLP) DecodeSheets() {
 	// // then save to file
 	// err = png.Encode(f, alphaImg.SubImage(alphaImg.Rect))
 	// handleErr(err)
+}
 
+func (tglp *TGLP) Encode() []byte {
+	var res []byte
+
+	header := tglp.EncodeHeader()
+	padding := make([]byte, tglp.computePredataPadding())
+	allSheetData := tglp.EncodeSheetData()
+
+	res = append(res, header...)
+	res = append(res, padding...)
+	res = append(res, allSheetData...)
+
+	return res
 }
 
 func (tglp *TGLP) EncodeHeader() []byte {
@@ -177,25 +183,65 @@ func (tglp *TGLP) EncodeHeader() []byte {
 	return buf.Bytes()
 }
 
-// TODO
-func (tglp *TGLP) EncodeSheets() []byte {
-	currentImage := tglp.SheetData[0]
-	img := imaging.FlipV(currentImage.SubImage(currentImage.Rect))
+func (tglp *TGLP) computePredataPadding() int {
+	// Not to scale representation of a portion of the bffnt file in raw bytes
+	// for visual purposes
+	//                      |-------------TGLP section size---------------------------|
+	// CFNT   FINF          TGLP header    padding              tglp SheetDataOffset
+	// |      |             |              |                    |
+	// aaaaaa bbbbbbbbbbbbb cccccccccccccc 00000000000000000000 ddddddddddddddddddddddd
 
-	// convert back into alphaImg
-	res := make([]byte, tglp.SheetSize)
-	for i := 0; i < len(currentImage.Pix); i++ {
-		res[i] = img.Pix[4*i+3]
+	return int(tglp.SheetDataOffset) - CFNT_HEADER_SIZE - FINF_HEADER_SIZE - TGLP_HEADER_SIZE
+}
+
+func (tglp *TGLP) EncodeSheetData() []byte {
+	encodedSheetData := make([]byte, 0)
+
+	// swizzle every sheet
+	for i := 0; i < len(tglp.SheetData); i++ {
+		currentSheet := tglp.SheetData[i]
+
+		// Wii U stores image data upside down
+		img := imaging.FlipV(currentSheet.SubImage(currentSheet.Rect))
+
+		sheetData := make([]byte, tglp.SheetSize)
+		switch tglp.SheetImageFormat {
+		case 8:
+			// convert RGBA into alpha only image, discard unused bytes
+			for i := 0; i < len(sheetData); i++ {
+				sheetData[i] = img.Pix[4*i+3]
+			}
+			break
+		default:
+			panic(fmt.Sprintf("Unsupported image encoding for image format: %d", tglp.SheetImageFormat))
+		}
+
+		// swizzle the image
+		depth := uint(1)
+		sw := uint(tglp.SheetWidth)
+		sh := uint(tglp.SheetHeight)
+		format_ := uint(1)
+		aa := uint(0)
+		use := uint(2)
+		tileMode := uint(4)
+		swizzle_ := uint(0)
+		bpp := uint(8)
+		slice := uint(0)
+		sample := uint(0)
+		swizzledData := swizzle(sw, sh, depth, sh, format_, aa, use, tileMode, swizzle_, sw, bpp, slice, sample, sheetData)
+
+		// write swizzled sheet
+		encodedSheetData = append(encodedSheetData, swizzledData...)
 	}
 
-	return res
+	return encodedSheetData
 }
 
 func deswizzle(width uint, height uint, depth uint, height_ uint, format uint, aa uint, use uint, tileMode uint, swizzle_ uint, pitch uint, bpp uint, slice uint, sample uint, data []byte) []byte {
 	return swizzleSurface(width, height, depth, format, aa, use, tileMode, swizzle_, pitch, bpp, slice, sample, data, false)
 }
 
-func swizzle(width uint, height uint, depth uint, height_ uint, format uint, aa uint, use uint, tileMode uint, swizzle_ uint, pitch uint, bpp uint, slice uint, sample uint, byte, data []byte) []byte {
+func swizzle(width uint, height uint, depth uint, height_ uint, format uint, aa uint, use uint, tileMode uint, swizzle_ uint, pitch uint, bpp uint, slice uint, sample uint, data []byte) []byte {
 	return swizzleSurface(width, height, depth, format, aa, use, tileMode, swizzle_, pitch, bpp, slice, sample, data, true)
 }
 

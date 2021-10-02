@@ -1,8 +1,11 @@
 package bffnt_headers
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"io"
+	"runtime/debug"
 )
 
 var Debug bool
@@ -28,6 +31,15 @@ func assertEqual(expected int, actual int) {
 }
 
 func handleErr(err error) {
+	if err != nil {
+		debug.PrintStack()
+		panic(err)
+	}
+}
+
+// Just a wrapper around binary.Write
+func binaryWrite(w io.Writer, data interface{}) {
+	err := binary.Write(w, binary.BigEndian, data)
 	if err != nil {
 		panic(err)
 	}
