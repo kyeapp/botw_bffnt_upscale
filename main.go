@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"io/ioutil"
+	"os"
 
 	"bffnt/bffnt_headers"
 )
@@ -39,16 +40,20 @@ func (b *BFFNT) Encode() []byte {
 	cfntRaw := b.CFNT.Encode()
 	finfRaw := b.FINF.Encode()
 	tglpRaw := b.TGLP.Encode()
+
 	cwdhStartOffset := len(cfntRaw) + len(finfRaw) + len(tglpRaw)
 	cwdhsRaw := bffnt_headers.EncodeCWDHs(b.CWDHs, cwdhStartOffset)
-	// cmapRaw := EncodeCMAPs()
+
+	cmapStartOffset := cwdhStartOffset + len(cwdhsRaw)
+	cmapsRaw := bffnt_headers.EncodeCMAPs(b.CMAPs, cmapStartOffset)
+
 	krngRaw := b.KRNG.Encode(bffntRaw)
 
 	res = append(cfntRaw, cfntRaw...)
 	res = append(finfRaw, finfRaw...)
 	res = append(tglpRaw, tglpRaw...)
 	res = append(cwdhsRaw, cwdhsRaw...)
-	// res = append(cmapsRaw, cmapsRaw...)
+	res = append(cmapsRaw, cmapsRaw...)
 	res = append(krngRaw, krngRaw...)
 
 	return res
@@ -79,7 +84,12 @@ func main() {
 	var bffnt BFFNT
 	bffnt.Load(testBffntFile)
 
-	_ = bffnt.Encode()
+	bffntBytes := bffnt.Encode()
+
+	err := os.WriteFile("output.bffnt", bffntBytes, 0644)
+	if err != nil {
+		panic(err)
+	}
 
 	return
 }

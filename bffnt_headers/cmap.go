@@ -1,6 +1,8 @@
 package bffnt_headers
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/binary"
 	"fmt"
 )
@@ -17,9 +19,10 @@ type CMAP struct { //         Offset  Size  Description
 	Reserved       uint16 // 0x0E    0x02  Reserved?
 	NextCMAPOffset uint32 // 0x10    0x04  Next CMAP Offset
 
-	// key is a character's ascii code
-	// value is the character's index in the tglp's SheetData
-	CharacterIndexMap map[uint16]uint16
+	// This is a pair of arrays that hold the ascii and it's index in the font
+	// texture.
+	CharAscii []uint16
+	CharIndex []uint16
 }
 
 func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
@@ -46,6 +49,8 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 	data := allRaw[headerEnd:dataEnd]
 	dataPos := 0
 
+	indexSlice := make([]uint16, 0)
+	asciiSlice := make([]uint16, 0)
 	// Direct mapping is the most space efficient of mapping type. It is used
 	// if all the characters in the range are to be indexed. The reserved data
 	// is characterOffset. Character offset is needed if the direct map is not
@@ -55,21 +60,18 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 	// character in a direct character map, the character's index is
 	// incremented by 1. The character offset should be equal to the total
 	// number of characters indexed from previous CMAPs.
-	indexMap := make(map[uint16]uint16, 0)
 	switch cmap.MappingMethod {
 	case 0:
 		characterOffset := cmap.Reserved
 		for i := cmap.CodeBegin; i <= cmap.CodeEnd; i++ {
 			charAsciiCode := i
 			charIndex := i - cmap.CodeBegin + characterOffset
-			indexMap[charAsciiCode] = charIndex
+			asciiSlice = append(asciiSlice, charAsciiCode)
+			indexSlice = append(indexSlice, charIndex)
 
 			// fmt.Printf("direct %#U %d\n", rune(charCode), charIdx)
 		}
-		cmap.CharacterIndexMap = indexMap
 
-		characterCodeCount := int(cmap.CodeEnd - cmap.CodeBegin + 1)
-		assertEqual(characterCodeCount, len(cmap.CharacterIndexMap))
 		// totalBytesSoFar := int(headerStart) + CMAP_HEADER_SIZE + dataLen
 		// calculatedSectionSize := CMAP_HEADER_SIZE + dataLen + paddingToNext8ByteBoundary(totalBytesSoFar)
 
@@ -92,14 +94,11 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 		for i := cmap.CodeBegin; i <= cmap.CodeEnd; i++ {
 			charAsciiCode := i
 			charIndex := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
-			if charIndex != 65535 { // math.MaxUint16
-				indexMap[charAsciiCode] = charIndex
+			asciiSlice = append(asciiSlice, charAsciiCode)
+			indexSlice = append(indexSlice, charIndex)
 
-				// fmt.Printf("table %#U %d\n", charCode, charIdx)
-			}
 			dataPos += 2
 		}
-		cmap.CharacterIndexMap = indexMap
 
 		// calculatedSectionSize := CMAP_HEADER_SIZE + dataPos
 		// fmt.Println("calc section size", calculatedSectionSize)
@@ -116,9 +115,9 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 	// Scan mapping is used for individual ascii code indexing. And the most
 	// space inefficient type of character mapping. It is done by storing an
 	// array of ascii codes and its index after the header. The first uint16 is
-	// the amount of glyphs to read. After that the bytes are read in uint16
-	// pairs. Read a uint16 for the character ascii code and then another
-	// uint16 for the character index.
+	// the amount of pairs of (glyph, index) to read. After that the bytes are
+	// read in uint16 pairs. Read a uint16 for the character ascii code and
+	// then another uint16 for the character index.
 	case 2:
 		charCount := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
 		dataPos += 2
@@ -126,12 +125,12 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 		for i := uint16(0); i < charCount; i++ {
 			charAsciiCode := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
 			charIndex := binary.BigEndian.Uint16(data[dataPos+2 : dataPos+4])
-			indexMap[charAsciiCode] = charIndex
+			asciiSlice = append(asciiSlice, charAsciiCode)
+			indexSlice = append(indexSlice, charIndex)
 			// fmt.Printf("table %#U %d\n", charAsciiCode, charIndex)
 
 			dataPos += 4
 		}
-		cmap.CharacterIndexMap = indexMap
 
 		// calculatedSectionSize := CMAP_HEADER_SIZE + dataPos
 		// fmt.Println("calc section size", calculatedSectionSize)
@@ -147,10 +146,14 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 	default:
 		panic("unknown mapping method")
 	}
+	cmap.CharAscii = asciiSlice
+	cmap.CharIndex = indexSlice
 
 	// fmt.Println("cmap padding start", headerStart+CMAP_HEADER_SIZE+dataPos)
 	// totalBytesSoFar := int(headerStart) + CMAP_HEADER_SIZE + dataLen
 	// fmt.Println("padding to next 8 byte boundary", paddingToNext8ByteBoundary(totalBytesSoFar))
+
+	assertEqual(len(cmap.CharAscii), len(cmap.CharIndex))
 
 	if Debug {
 		dataPosEnd := headerEnd + dataPos
@@ -164,10 +167,6 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 	}
 }
 
-func (cmap *CMAP) encode() []byte {
-	return nil
-}
-
 func DecodeCMAPs(allRaw []byte, FINF_CMAP_Offset uint32) []CMAP {
 	res := make([]CMAP, 0)
 
@@ -179,6 +178,82 @@ func DecodeCMAPs(allRaw []byte, FINF_CMAP_Offset uint32) []CMAP {
 
 		offset = currentCMAP.NextCMAPOffset
 	}
+
+	return res
+}
+
+// Encodes a single cmap.
+// The start offset passed in should be the total number of bytes written so far
+func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
+	var cmapDataBuf bytes.Buffer
+	dataWriter := bufio.NewWriter(&cmapDataBuf)
+
+	// encode cmap data. We need to know the length of the raw glyph data to
+	// know the section size
+	switch cmap.MappingMethod {
+	case 0:
+		// no data to encode
+	case 1:
+		// first uint16 is amount of indexes
+		binaryWrite(dataWriter, uint16(len(cmap.CharIndex)))
+		for i, _ := range cmap.CharIndex {
+			binaryWrite(dataWriter, cmap.CharIndex[i])
+		}
+	case 2:
+		// first uint16 is amount of (charAscii, charIndex) pairs
+		binaryWrite(dataWriter, uint16(len(cmap.CharIndex)))
+		for i, _ := range cmap.CharIndex {
+			binaryWrite(dataWriter, cmap.CharAscii[i])
+			binaryWrite(dataWriter, cmap.CharIndex[i])
+		}
+	}
+
+	cmapData := cmapDataBuf.Bytes()
+
+	// Calculate and edit the header information
+	cmap.SectionSize = uint32(CMAP_HEADER_SIZE + len(cmapData))
+	// + 8 bytes to skip the next CWDH magic header and section size
+	cmap.NextCMAPOffset = uint32(int(startOffset) + CMAP_HEADER_SIZE + len(cmapData) + 8)
+
+	if isLastCMAP {
+		// terminate cmap list by setting offset to 0
+		cmap.NextCMAPOffset = 0
+	}
+
+	var buf bytes.Buffer
+	w := bufio.NewWriter(&buf)
+
+	// Write raw data of the header and data
+	_, _ = w.Write([]byte(cmap.MagicHeader))
+	binaryWrite(w, cmap.SectionSize)
+	binaryWrite(w, cmap.CodeBegin)
+	binaryWrite(w, cmap.CodeEnd)
+	binaryWrite(w, cmap.MappingMethod)
+	binaryWrite(w, cmap.Reserved)
+	binaryWrite(w, cmap.NextCMAPOffset)
+	_, _ = w.Write(cmapData)
+	w.Flush()
+
+	return buf.Bytes()
+}
+
+func EncodeCMAPs(CMAPs []CMAP, startingOffset int) []byte {
+	res := make([]byte, 0)
+
+	offset := uint32(startingOffset)
+	for i, currentCMAP := range CMAPs {
+		isLast := false
+		if i == len(CMAPs)-1 {
+			isLast = true
+		}
+
+		cmapBytes := currentCMAP.Encode(offset, isLast)
+
+		res = append(res, cmapBytes...)
+		offset = currentCMAP.NextCMAPOffset
+	}
+
+	// possible TODO? pad to the next 8 byte boundary
 
 	return res
 }

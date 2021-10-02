@@ -102,7 +102,7 @@ func (cwdh *CWDH) DecodeHeader(raw []byte) {
 }
 
 // Encodes a single cwdh.
-// The start offset passed in should be the
+// The start offset passed in should be the total number of bytes written so far
 func (cwdh *CWDH) encode(startOffset uint32, isLastCWDH bool) []byte {
 	var glyphBuf bytes.Buffer
 	gw := bufio.NewWriter(&glyphBuf)
