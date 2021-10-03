@@ -100,7 +100,7 @@ func (tglp *TGLP) DecodeHeader(raw []byte) {
 	tglp.SheetDataOffset = binary.BigEndian.Uint32(raw[28:TGLP_HEADER_SIZE])
 
 	if Debug {
-		pprint(tglp)
+		// pprint(tglp)
 	}
 }
 
@@ -123,7 +123,6 @@ func (tglp *TGLP) DecodeSheets() {
 	sample := uint(0)
 	deswizzledImage := deswizzle(sw, sh, depth, sh, format_, aa, use, tileMode, swizzle_, sw, bpp, slice, sample, sheetData)
 
-	// TODO rework this to use custom horizontal flip
 	alphaImg := image.Alpha{
 		Pix:    deswizzledImage,
 		Stride: int(tglp.SheetWidth),
@@ -134,15 +133,6 @@ func (tglp *TGLP) DecodeSheets() {
 	img := imaging.FlipV(alphaImg.SubImage(alphaImg.Rect))
 
 	tglp.SheetData = append(tglp.SheetData, *img)
-
-	// f, err := os.Create("outimage.png")
-	// handleErr(err)
-	// defer f.Close()
-
-	// // Encode to `PNG` with `DefaultCompression` level
-	// // then save to file
-	// err = png.Encode(f, alphaImg.SubImage(alphaImg.Rect))
-	// handleErr(err)
 }
 
 func (tglp *TGLP) Encode() []byte {
@@ -198,7 +188,7 @@ func (tglp *TGLP) computePredataPadding() int {
 func (tglp *TGLP) EncodeSheetData() []byte {
 	encodedSheetData := make([]byte, 0)
 
-	// swizzle every sheet
+	// looping through every sheet to swizzle
 	for i := 0; i < len(tglp.SheetData); i++ {
 		currentSheet := tglp.SheetData[i]
 

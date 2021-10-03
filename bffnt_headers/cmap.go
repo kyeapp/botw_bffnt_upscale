@@ -42,9 +42,9 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 	cmap.Reserved = binary.BigEndian.Uint16(headerRaw[14:16])
 	cmap.NextCMAPOffset = binary.BigEndian.Uint32(headerRaw[16:CMAP_HEADER_SIZE])
 
-	// if Debug {
-	// 	pprint(cmap)
-	// }
+	if Debug {
+		pprint(cmap)
+	}
 
 	dataEnd := headerStart + int(cmap.SectionSize)
 	data := allRaw[headerEnd:dataEnd]
@@ -124,9 +124,6 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 	verifyLeftoverBytes(leftoverData)
 	assertEqual(len(cmap.CharAscii), len(cmap.CharIndex))
 
-	if Debug {
-		pprint(cmap)
-	}
 	if Debug {
 		dataPosEnd := headerEnd + dataPos
 		fmt.Printf("Read section total of %d bytes\n", dataPosEnd-headerStart)

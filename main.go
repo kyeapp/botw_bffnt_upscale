@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"os"
 
@@ -41,35 +40,14 @@ func (b *BFFNT) Encode() []byte {
 
 	cmapStartOffset := cwdhStartOffset + len(cwdhsRaw)
 	cmapsRaw := bffnt_headers.EncodeCMAPs(b.CMAPs, cmapStartOffset)
-	fmt.Println("==================================")
-	// _ = bffnt_headers.DecodeCMAPs(cmapsRaw, 8)
 
 	krngRaw := b.KRNG.Encode(bffntRaw)
 
-	// finf is encoded last because it needs to know the size of tglp and cwdhs to calculate offsets
+	// FINF is encoded last because it needs to know the size of tglp and cwdhs to calculate offsets
 	tglpOffset := bffnt_headers.CFNT_HEADER_SIZE + bffnt_headers.FINF_HEADER_SIZE
 	cwdhOffset := tglpOffset + len(tglpRaw)
 	cmapOffset := cwdhOffset + len(cwdhsRaw)
 	finfRaw := b.FINF.Encode(tglpOffset+8, cwdhOffset+8, cmapOffset+8)
-
-	totalBytes := 0
-	totalBytes += len(cfntRaw)
-	fmt.Println("bytes written so far:", totalBytes)
-
-	totalBytes += len(finfRaw)
-	fmt.Println("bytes written so far:", totalBytes)
-
-	totalBytes += len(tglpRaw)
-	fmt.Println("bytes written so far:", totalBytes)
-
-	totalBytes += len(cwdhsRaw)
-	fmt.Println("bytes written so far:", totalBytes)
-
-	totalBytes += len(cmapsRaw)
-	fmt.Println("bytes written so far:", totalBytes)
-
-	totalBytes += len(krngRaw)
-	fmt.Println("bytes written so far:", totalBytes)
 
 	res = append(res, cfntRaw...)
 	res = append(res, finfRaw...)
@@ -85,18 +63,18 @@ func (b *BFFNT) Encode() []byte {
 // project is to create a bffnt encoder/decoder so I can upscale this font
 
 const (
-	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/Ancient/Ancient_00.bffnt"
-	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/Special/Special_00.bffnt"
-	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/Caption/Caption_00.bffnt"
-	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/Normal/Normal_00.bffnt"
-	testBffntFile = "/home/kyeap/workspace/bffnt/WiiU_fonts/botw/NormalS/NormalS_00.bffnt"
-	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/botw/External/External_00.bffnt"
+	// testBffntFile = "./WiiU_fonts/botw/Ancient/Ancient_00.bffnt"
+	// testBffntFile = "./WiiU_fonts/botw/Special/Special_00.bffnt"
+	// testBffntFile = "./WiiU_fonts/botw/Caption/Caption_00.bffnt"
+	// testBffntFile = "./WiiU_fonts/botw/Normal/Normal_00.bffnt"
+	testBffntFile = "./WiiU_fonts/botw/NormalS/NormalS_00.bffnt"
+	// testBffntFile = "./WiiU_fonts/botw/External/External_00.bffnt"
 
-	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/comicfont/Normal_00.bffnt"
-	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/kirbysans/Normal_00.bffnt"
-	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/kirbyscript/Normal_00.bffnt"
-	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/popjoy_font/Normal_00.bffnt"
-	// testBffntFile = "/Users/kyeap/workspace/bffnt/WiiU_fonts/turbofont/Normal_00.bffnt"
+	// testBffntFile = "./WiiU_fonts/comicfont/Normal_00.bffnt"
+	// testBffntFile = "./WiiU_fonts/kirbysans/Normal_00.bffnt"
+	// testBffntFile = "./WiiU_fonts/kirbyscript/Normal_00.bffnt"
+	// testBffntFile = "./WiiU_fonts/popjoy_font/Normal_00.bffnt"
+	// testBffntFile = "./WiiU_fonts/turbofont/Normal_00.bffnt"
 )
 
 func main() {

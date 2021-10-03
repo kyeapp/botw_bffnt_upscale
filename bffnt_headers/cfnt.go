@@ -18,16 +18,9 @@ type CFNT struct { //       Offset  Size  Description
 	// It looks like BlockReadNum is always some multiple of 2^16 (65536 in
 	// decimal. 0x10000 in HEX). Unclear wether this can break a font. It might
 	// be that its a suggestion to the system to it can block read at a time.
-	// perhaps it is ok to change this number around. Change this bit and see if botw crashes.
-
-	// remainder := (cfnt.TotalFileSize % 65536)
-	// quotient := (cfnt.TotalFileSize - remainder) / 65536
-	// calculatedBlockReadNum := int((quotient + 1) * 65536)
-	// fmt.Println(tglp.SheetSize)
-	// fmt.Println(remainder)
-	// fmt.Println(quotient)
-	// fmt.Println(calculatedBlockReadNum)
-	// assertEqual(calculatedBlockReadNum, int(cfnt.BlockReadNum))
+	// This means that a small block read size might result in slower font
+	// being printed to the screen. Perhaps it is ok to change this number
+	// around. Change this bit and see if botw crashes.
 }
 
 func (cfnt *CFNT) Decode(raw []byte) {

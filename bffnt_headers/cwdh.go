@@ -31,8 +31,6 @@ func (cwdh *CWDH) Decode(raw []byte, cwdhOffset uint32) {
 	headerStart := int(cwdhOffset) - 8
 	headerEnd := headerStart + CWDH_HEADER_SIZE
 	headerBytes := raw[headerStart:headerEnd]
-	fmt.Println(headerStart)
-	fmt.Println(headerEnd)
 	cwdh.DecodeHeader(headerBytes)
 
 	// Character width data is read in tuples of 3 bytes.  The glyph width info
@@ -55,18 +53,9 @@ func (cwdh *CWDH) Decode(raw []byte, cwdhOffset uint32) {
 	}
 	cwdh.Glyphs = resultGlyphs
 
-	// hs := int(headerStart)
-	// fmt.Println(hs)                                         // 532480
-	// fmt.Println(hs + CWDH_HEADER_SIZE)                      // 532496
-	// fmt.Println(hs + CWDH_HEADER_SIZE + 3*len(cwdh.Glyphs)) // 534326
-	// fmt.Println(dataEnd)                                    // 534328
-
 	leftoverData := data[dataPos:]
 	verifyLeftoverBytes(leftoverData)
 
-	// totalBytesSoFar := int(headerStart) + CWDH_HEADER_SIZE + dataPos
-	// calculatedCWDHSectionSize := CWDH_HEADER_SIZE + dataPos // + paddingToNext8ByteBoundary(totalBytesSoFar)
-	// assertEqual(int(cwdh.SectionSize), calculatedCWDHSectionSize)
 	assertEqual(int(cwdh.EndIndex+1), len(cwdh.Glyphs))
 
 	if Debug {
@@ -105,10 +94,7 @@ func DecodeCWDHs(allRaw []byte, startingOffset uint32) []CWDH {
 	res := make([]CWDH, 0)
 
 	offset := startingOffset
-	i := 0
 	for offset != 0 {
-		fmt.Println("i", i)
-		i++
 		var currentCWDH CWDH
 		currentCWDH.Decode(allRaw, offset)
 		res = append(res, currentCWDH)
