@@ -2,12 +2,13 @@ package bffnt_headers
 
 import (
 	"encoding/binary"
+	"strings"
 )
 
 type kerningPair struct {
 	// FirstChar uint16
 	SecondChar   uint16
-	kerningValue uint16
+	kerningValue int16
 }
 
 type KRNG struct { // Offset  Size  Description
@@ -40,12 +41,13 @@ type KRNG struct { // Offset  Size  Description
 	// [ P ] | [( d, -2 ), ( g, -2 ), ( y, -1 )]
 }
 
-// THIS IS UNTESTED
-func (krng *KRNG) Decode(bffntRaw []byte, startingOffset int) {
+// The kerning index table doesn't seem to be recorded in any headers. It is
+// most likely usually the last section.
+func (krng *KRNG) Decode(bffntRaw []byte) {
+	// Since the kerning offset is not recorded we need to find it first.
+	headerStart := strings.Index(string(bffntRaw), "KRNG")
 
-	return
 	// headerStart := 536080
-	headerStart := startingOffset
 	headerEnd := headerStart + KRNG_HEADER_SIZE
 	headerRaw := bffntRaw[headerStart:headerEnd]
 	assertEqual(KRNG_HEADER_SIZE, len(headerRaw))
@@ -53,8 +55,13 @@ func (krng *KRNG) Decode(bffntRaw []byte, startingOffset int) {
 	krng.MagicHeader = string(headerRaw[0:4])
 	krng.SectionSize = binary.BigEndian.Uint32(headerRaw[4:8])
 
+	// fmt.Println(krng.MagicHeader)
+	// fmt.Println(krng.SectionSize)
+
 	dataEnd := headerStart + int(krng.SectionSize)
 	data := bffntRaw[headerEnd:dataEnd]
+
+	// fmt.Println(dataEnd - headerStart)
 
 	// The first two bytes are the amount of FirstChars
 	firstCharCount := binary.BigEndian.Uint16(data[0:2])
@@ -67,21 +74,29 @@ func (krng *KRNG) Decode(bffntRaw []byte, startingOffset int) {
 		secondCharOffset := binary.BigEndian.Uint16(data[dataPos+2 : dataPos+4])
 		dataPos += 4
 
-		// fmt.Printf("( '%s', %d )\n", string(firstChar), offset)
+		// fmt.Println("============================")
+		// fmt.Println("FirstChar:", string(firstChar))
+		// fmt.Println("SecondChar offset:", secondCharOffset)
+
 		// The real offset must be multiplied by 2. This might be the case
 		// because a single uint16 might not be big enough for an offset if the
 		// kerning table is too large
-		secondCharOffset = secondCharOffset*2 + 8
+		secondCharOffset = secondCharOffset * 2
 		secondCharCount := binary.BigEndian.Uint16(data[secondCharOffset : secondCharOffset+2])
 
-		pairData := data[secondCharOffset+2 : secondCharOffset*4]
+		pairDataStart := secondCharOffset + 2
+		pairDataEnd := secondCharOffset + 2 + secondCharCount*4
+		pairData := data[pairDataStart:pairDataEnd]
+
+		// fmt.Println("SecondChar real offset:", secondCharOffset)
+		// fmt.Println("SecondChar Count:", secondCharCount)
 
 		// Go to offset and record kerning pairs for this char
 		pairPos := 0
 		kerningPairSlice := make([]kerningPair, 0)
 		for j := 0; j < int(secondCharCount); j++ {
 			secondChar := binary.BigEndian.Uint16(pairData[pairPos : pairPos+2])
-			kerningValue := uint16(binary.BigEndian.Uint16(pairData[pairPos+2 : pairPos+4]))
+			kerningValue := int16(binary.BigEndian.Uint16(pairData[pairPos+2 : pairPos+4]))
 
 			kerningPairSlice = append(kerningPairSlice, kerningPair{secondChar, kerningValue})
 
@@ -89,7 +104,12 @@ func (krng *KRNG) Decode(bffntRaw []byte, startingOffset int) {
 		}
 
 		kerningMap[firstChar] = kerningPairSlice
+
+		// fmt.Println(string(firstChar), kerningMap[firstChar])
 	}
+
+	// find where the last table data resides so we can verify leftover bytes
+	// assume that the last
 
 	// leftover bytes?
 	// leftover := uint16(binary.BigEndian.Uint16(data[dataPos : dataPos+2]))

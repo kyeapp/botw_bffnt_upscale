@@ -30,7 +30,8 @@ func (b *BFFNT) Decode(bffntRaw []byte) {
 	b.TGLP.Decode(bffntRaw)
 	b.CWDHs = bffnt_headers.DecodeCWDHs(bffntRaw, b.FINF.CWDHOffset)
 	b.CMAPs = bffnt_headers.DecodeCMAPs(bffntRaw, b.FINF.CMAPOffset)
-	b.KRNG.Decode(bffntRaw, 0)
+	// b.KRNG.Decode(bffntRaw, 536080)
+	b.KRNG.Decode(bffntRaw)
 }
 
 func (b *BFFNT) Encode() []byte {
@@ -126,14 +127,14 @@ func main() {
 	upscaledSheets := make([]image.NRGBA, 0)
 	upscaledSheets = append(upscaledSheets, *sheet0)
 
-	bffnt.Upscale(2, upscaledSheets)
+	// bffnt.Upscale(2, upscaledSheets)
 
 	encodedRaw := bffnt.Encode()
 
 	err = os.WriteFile("output.bffnt", encodedRaw, 0644)
 	handleErr(err)
 
-	bffnt.Decode(encodedRaw)
+	// bffnt.Decode(encodedRaw)
 
 	return
 }
