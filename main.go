@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bffnt/bffnt_headers"
 	"flag"
+	"fmt"
 	"image"
+	"image/png"
 	"io/ioutil"
 	"os"
 
-	"bffnt/bffnt_headers"
+	"github.com/disintegration/imaging"
 )
 
 type BFFNT struct {
@@ -65,8 +68,13 @@ func (b *BFFNT) Encode() []byte {
 // This is to be used to upscale the resolution of the a texture. It will make
 // the appropriate calculations based on the amount of scaling specified
 // It will be up to the user to provide the upscaled images in a png format
-func (b *BFFNT) UpScale(scale int, images []image.NRGBA) {
+func (b *BFFNT) Upscale(scale uint8, upscaledImages []image.NRGBA) {
+	fmt.Println("upscaling image by factor of", scale)
+	// TODO: Instead of an integer scaler. change this to be a ratio. you could
+	// then do gradient scaling.  e.x. scale by 1.5x
 
+	b.FINF.Upscale(scale)
+	b.TGLP.Upscale(scale, upscaledImages)
 }
 
 // This BFFNT file is Breath of the Wild's NormalS_00.bffnt. The goal of the
@@ -87,24 +95,43 @@ const (
 	// testBffntFile = "./WiiU_fonts/turbofont/Normal_00.bffnt"
 )
 
+func handleErr(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func main() {
 	flag.BoolVar(&bffnt_headers.Debug, "d", false, "enable debug output")
 	flag.Parse()
 
 	bffntRaw, err = ioutil.ReadFile(testBffntFile)
-	if err != nil {
-		panic(err)
-	}
 
 	var bffnt BFFNT
+	handleErr(err)
 	bffnt.Decode(bffntRaw)
+
+	upscaledReader, err := os.Open("./sheet_0_waifu2x.png")
+	handleErr(err)
+	img, err := png.Decode(upscaledReader)
+	handleErr(err)
+
+	g := img.(*image.Gray)
+	fmt.Printf("image type: %T\n", g)
+
+	// I'm just using the flip function to convert to NRGBA
+	nrgbaFlipped := imaging.FlipV(g.SubImage(g.Rect))
+	sheet0 := imaging.FlipV(nrgbaFlipped.SubImage(nrgbaFlipped.Rect))
+
+	upscaledSheets := make([]image.NRGBA, 0)
+	upscaledSheets = append(upscaledSheets, *sheet0)
+
+	bffnt.Upscale(2, upscaledSheets)
 
 	encodedRaw := bffnt.Encode()
 
-	err := os.WriteFile("output.bffnt", encodedRaw, 0644)
-	if err != nil {
-		panic(err)
-	}
+	err = os.WriteFile("output.bffnt", encodedRaw, 0644)
+	handleErr(err)
 
 	bffnt.Decode(encodedRaw)
 

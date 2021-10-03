@@ -50,8 +50,19 @@ type TGLP struct { //    Offset  Size  Description
 	SheetWidth       uint16        // 0x18    0x02  Sheet Width
 	SheetHeight      uint16        // 0x1A    0x02  Sheet Height
 	SheetDataOffset  uint32        // 0x1C    0x04  Sheet Data Offset
-	AllSheetData     []byte        // raw bytes of all data sheets
-	SheetData        []image.NRGBA // separated unswizzled images
+	AllSheetData     []byte        // raw bytes of all data sheets. Used for decoding.
+	SheetData        []image.NRGBA // separated unswizzled images. Used for encoding.
+}
+
+func (tglp *TGLP) Upscale(scale uint8, upscaledSheetData []image.NRGBA) {
+	tglp.CellWidth *= scale
+	tglp.CellHeight *= scale
+	tglp.MaxCharWidth *= scale
+	tglp.SheetSize *= uint32(scale) * uint32(scale)
+	tglp.BaselinePosition *= uint16(scale)
+	tglp.SheetWidth *= uint16(scale)
+	tglp.SheetHeight *= uint16(scale)
+	tglp.SheetData = upscaledSheetData
 }
 
 // Version 4 (BFFNT)
@@ -105,6 +116,7 @@ func (tglp *TGLP) DecodeHeader(raw []byte) {
 }
 
 // TODO: decode multiple sheets
+// TODO: have swizzle take in RGBA
 func (tglp *TGLP) DecodeSheets() {
 	totalSheetBytes := int(tglp.NumOfSheets) * int(tglp.SheetSize)
 	assertEqual(totalSheetBytes, len(tglp.AllSheetData))
@@ -137,6 +149,8 @@ func (tglp *TGLP) DecodeSheets() {
 
 func (tglp *TGLP) Encode() []byte {
 	var res []byte
+
+	tglp.SectionSize = tglp.SheetDataOffset - CFNT_HEADER_SIZE - FINF_HEADER_SIZE + tglp.SheetSize*uint32(tglp.NumOfSheets)
 
 	header := tglp.EncodeHeader()
 	padding := make([]byte, tglp.computePredataPadding())

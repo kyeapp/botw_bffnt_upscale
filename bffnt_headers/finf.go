@@ -85,3 +85,16 @@ func (finf *FINF) Encode(tglpOffset int, cwdhOffset int, cmapOffset int) []byte 
 	assertEqual(FINF_HEADER_SIZE, len(buf.Bytes()))
 	return buf.Bytes()
 }
+
+// Characters have a theorical maximum size of 256 pixels becuase some
+// attributes are defined with a uint8. A uint8's maxmum size is 256.
+func (finf *FINF) Upscale(scale uint8) {
+	finf.Height *= scale
+	finf.Width *= scale
+	finf.Ascent *= scale
+	finf.LineFeed *= uint16(scale)
+	finf.AlterCharIndex *= uint16(scale)
+	finf.DefaultLeftWidth *= scale
+	finf.DefaultGlyphWidth *= scale
+	finf.DefaultCharWidth *= scale
+}

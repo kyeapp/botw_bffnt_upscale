@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"runtime/debug"
 )
 
 var Debug bool
@@ -34,7 +33,6 @@ func assertEqual(expected int, actual int) {
 
 func handleErr(err error) {
 	if err != nil {
-		debug.PrintStack()
 		panic(err)
 	}
 }
