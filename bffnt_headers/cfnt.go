@@ -45,7 +45,7 @@ func (cfnt *CFNT) Decode(raw []byte) {
 	}
 }
 
-func (cfnt *CFNT) Encode() []byte {
+func (cfnt *CFNT) Encode(totalFileSize uint32) []byte {
 	var buf bytes.Buffer
 	w := bufio.NewWriter(&buf)
 
@@ -53,7 +53,7 @@ func (cfnt *CFNT) Encode() []byte {
 	binaryWrite(w, cfnt.Endianness)
 	binaryWrite(w, cfnt.SectionSize)
 	binaryWrite(w, cfnt.Version)
-	binaryWrite(w, cfnt.TotalFileSize)
+	binaryWrite(w, totalFileSize)
 	binaryWrite(w, cfnt.BlockReadNum)
 	w.Flush()
 

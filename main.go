@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"image"
 	"io/ioutil"
 	"os"
 
@@ -26,13 +27,12 @@ func (b *BFFNT) Decode(bffntRaw []byte) {
 	b.TGLP.Decode(bffntRaw)
 	b.CWDHs = bffnt_headers.DecodeCWDHs(bffntRaw, b.FINF.CWDHOffset)
 	b.CMAPs = bffnt_headers.DecodeCMAPs(bffntRaw, b.FINF.CMAPOffset)
-	b.KRNG.Decode(bffntRaw)
+	b.KRNG.Decode(bffntRaw, 0)
 }
 
 func (b *BFFNT) Encode() []byte {
 	res := make([]byte, 0)
 
-	cfntRaw := b.CFNT.Encode()
 	tglpRaw := b.TGLP.Encode()
 
 	cwdhStartOffset := bffnt_headers.CFNT_HEADER_SIZE + bffnt_headers.FINF_HEADER_SIZE + len(tglpRaw)
@@ -43,11 +43,14 @@ func (b *BFFNT) Encode() []byte {
 
 	krngRaw := b.KRNG.Encode(bffntRaw)
 
-	// FINF is encoded last because it needs to know the size of tglp and cwdhs to calculate offsets
 	tglpOffset := bffnt_headers.CFNT_HEADER_SIZE + bffnt_headers.FINF_HEADER_SIZE
 	cwdhOffset := tglpOffset + len(tglpRaw)
 	cmapOffset := cwdhOffset + len(cwdhsRaw)
 	finfRaw := b.FINF.Encode(tglpOffset+8, cwdhOffset+8, cmapOffset+8)
+
+	// TODO: calculate an appriopriate blockreadnum based on sheetsize?
+	fileSize := uint32(bffnt_headers.CFNT_HEADER_SIZE + len(finfRaw) + len(tglpRaw) + len(cwdhsRaw) + len(cmapsRaw) + len(krngRaw))
+	cfntRaw := b.CFNT.Encode(fileSize)
 
 	res = append(res, cfntRaw...)
 	res = append(res, finfRaw...)
@@ -57,6 +60,13 @@ func (b *BFFNT) Encode() []byte {
 	res = append(res, krngRaw...)
 
 	return res
+}
+
+// This is to be used to upscale the resolution of the a texture. It will make
+// the appropriate calculations based on the amount of scaling specified
+// It will be up to the user to provide the upscaled images in a png format
+func (b *BFFNT) UpScale(scale int, images []image.NRGBA) {
+
 }
 
 // This BFFNT file is Breath of the Wild's NormalS_00.bffnt. The goal of the

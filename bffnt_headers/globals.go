@@ -17,6 +17,7 @@ const (
 	TGLP_HEADER_SIZE = 32
 	CWDH_HEADER_SIZE = 16
 	CMAP_HEADER_SIZE = 20
+	KRNG_HEADER_SIZE = 8
 )
 
 // Resources

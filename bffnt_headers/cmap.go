@@ -196,7 +196,6 @@ func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 	binaryWrite(w, cmap.CodeEnd)
 	binaryWrite(w, cmap.MappingMethod)
 	binaryWrite(w, cmap.Reserved)
-	fmt.Println("encode cmap Reserved:", cmap.Reserved)
 	binaryWrite(w, cmap.NextCMAPOffset)
 	_, _ = w.Write(cmapData)
 
