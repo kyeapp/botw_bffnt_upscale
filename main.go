@@ -30,7 +30,6 @@ func (b *BFFNT) Decode(bffntRaw []byte) {
 	b.TGLP.Decode(bffntRaw)
 	b.CWDHs = bffnt_headers.DecodeCWDHs(bffntRaw, b.FINF.CWDHOffset)
 	b.CMAPs = bffnt_headers.DecodeCMAPs(bffntRaw, b.FINF.CMAPOffset)
-	// b.KRNG.Decode(bffntRaw, 536080)
 	b.KRNG.Decode(bffntRaw)
 }
 
@@ -45,7 +44,7 @@ func (b *BFFNT) Encode() []byte {
 	cmapStartOffset := cwdhStartOffset + len(cwdhsRaw)
 	cmapsRaw := bffnt_headers.EncodeCMAPs(b.CMAPs, cmapStartOffset)
 
-	krngRaw := b.KRNG.Encode(bffntRaw)
+	krngRaw := b.KRNG.Encode()
 
 	tglpOffset := bffnt_headers.CFNT_HEADER_SIZE + bffnt_headers.FINF_HEADER_SIZE
 	cwdhOffset := tglpOffset + len(tglpRaw)
@@ -134,7 +133,7 @@ func main() {
 	err = os.WriteFile("output.bffnt", encodedRaw, 0644)
 	handleErr(err)
 
-	// bffnt.Decode(encodedRaw)
+	bffnt.Decode(encodedRaw)
 
 	return
 }

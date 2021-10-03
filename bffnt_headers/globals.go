@@ -7,7 +7,9 @@ import (
 	"fmt"
 )
 
-var Debug bool
+var (
+	Debug bool
+)
 
 const (
 	// number of bytes for each header size
@@ -17,6 +19,13 @@ const (
 	CWDH_HEADER_SIZE = 16
 	CMAP_HEADER_SIZE = 20
 	KRNG_HEADER_SIZE = 8
+
+	CFNT_MAGIC_HEADER = "FFNT"
+	FINF_MAGIC_HEADER = "FINF"
+	TGLP_MAGIC_HEADER = "TGLP"
+	CWDH_MAGIC_HEADER = "CWDH"
+	CMAP_MAGIC_HEADER = "CMAP"
+	KRNG_MAGIC_HEADER = "KRNG"
 )
 
 // Resources

@@ -1,28 +1,31 @@
 package bffnt_headers
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/binary"
+	"fmt"
+	"sort"
 	"strings"
 )
 
 type kerningPair struct {
-	// FirstChar uint16
 	SecondChar   uint16
-	kerningValue int16
+	KerningValue int16 // kerning can be negative
 }
 
 type KRNG struct { // Offset  Size  Description
 	MagicHeader string // 0x00    0x04  Magic Header (KRNG)
 	SectionSize uint32 // 0x04    0x04  Section Size
-	// FirstCharCount     0x08    0x02  amount of First Chars
+	// FirstCharCount     0x08    0x02  Amount of First Chars
 
 	// FirstChar          0x0A    0x02  First char in a pair
-	// OffsetToPairArray  0x0C    0x02  Offset to the array of second characters (must multiply by 2)
+	// OffsetToPairArray  0x0C    0x02  Offset to the array of second characters divided by 2
 
 	// kerning pair array
-	// pairCount          0x0E    0x02  amount of kerningPairs (second character, kerning value)
-	//                    0x10    0x02  second char in a pair
-	//                    0x12    0x02  kerning value
+	// PairCount          0x0E    0x02  Amount of kerningPairs (second character, kerning value)
+	// SecondCharacter    0x10    0x02  Second character in a pair
+	// KerningValue       0x12    0x02  Kerning value
 
 	KerningTable map[uint16][]kerningPair
 	// Key = First character of a pair
@@ -45,9 +48,8 @@ type KRNG struct { // Offset  Size  Description
 // most likely usually the last section.
 func (krng *KRNG) Decode(bffntRaw []byte) {
 	// Since the kerning offset is not recorded we need to find it first.
-	headerStart := strings.Index(string(bffntRaw), "KRNG")
+	headerStart := strings.Index(string(bffntRaw), KRNG_MAGIC_HEADER)
 
-	// headerStart := 536080
 	headerEnd := headerStart + KRNG_HEADER_SIZE
 	headerRaw := bffntRaw[headerStart:headerEnd]
 	assertEqual(KRNG_HEADER_SIZE, len(headerRaw))
@@ -105,7 +107,7 @@ func (krng *KRNG) Decode(bffntRaw []byte) {
 
 		kerningMap[firstChar] = kerningPairSlice
 
-		// fmt.Println(string(firstChar), kerningMap[firstChar])
+		fmt.Println(string(firstChar), kerningMap[firstChar])
 	}
 
 	// find where the last table data resides so we can verify leftover bytes
@@ -116,9 +118,70 @@ func (krng *KRNG) Decode(bffntRaw []byte) {
 	// fmt.Println(leftover)
 }
 
-func (krng *KRNG) Encode(bffntRaw []byte) []byte {
-	pos := 536080 // KRNG start
-	data := bffntRaw[pos:]
+func (krng *KRNG) Encode() []byte {
+	var dataBuf bytes.Buffer
+	dataWriter := bufio.NewWriter(&dataBuf)
 
-	return data
+	FirstChars := getFirstCharsOrdered(krng.KerningTable)
+
+	// Nintendo divides the actual second character data offset by 2 before
+	// recording it. This is because the kerning table consist of only uint16s
+	// and int16s which means bytes are written in pairs (2 bytes).  By
+	// exploiting the fact that the second character data offset is guaranteed
+	// to be an even number, by halving the recorded offset, the theoretical
+	// maximum size of the kerning table is increased by a factor of 2x.
+	secondCharDataOffset := len(FirstChars) * 2
+
+	// Write first chars
+	for _, firstChar := range FirstChars {
+		binaryWrite(dataWriter, firstChar)
+		binaryWrite(dataWriter, uint16(secondCharDataOffset/2))
+
+		secondCharDataOffset += 2 // 2 bytes for second char count
+		secondCharDataOffset += 2 * len(krng.KerningTable[firstChar])
+	}
+
+	// Write kerning Data
+	for _, firstChar := range FirstChars {
+		secondCharCount := uint16(len(krng.KerningTable[firstChar]))
+		binaryWrite(dataWriter, secondCharCount)
+
+		for _, kerningPair := range krng.KerningTable[firstChar] {
+			binaryWrite(dataWriter, kerningPair.SecondChar)
+			binaryWrite(dataWriter, kerningPair.KerningValue)
+		}
+	}
+	dataWriter.Flush()
+	krngData := dataBuf.Bytes()
+
+	krng.SectionSize = uint32(KRNG_HEADER_SIZE + len(krngData))
+
+	var buf bytes.Buffer
+	w := bufio.NewWriter(&buf)
+	// Write raw data of the header and data
+	_, _ = w.Write([]byte(KRNG_MAGIC_HEADER))
+	binaryWrite(w, krng.SectionSize)
+	_, _ = w.Write(krngData)
+
+	w.Flush()
+	return buf.Bytes()
+}
+
+// takes the kerning table and returns the inputs in order.  Not functionally
+// needed. But easier to read when in order.
+func getFirstCharsOrdered(kerningTable map[uint16][]kerningPair) []uint16 {
+	res := make([]uint16, len(kerningTable))
+
+	orderedFirstChars := make([]int, len(kerningTable))
+	for char, _ := range kerningTable {
+		orderedFirstChars = append(orderedFirstChars, int(char))
+	}
+	sort.Ints(orderedFirstChars)
+
+	// convert back into uint16
+	for i, char := range orderedFirstChars {
+		res[i] = uint16(char)
+	}
+
+	return res
 }
