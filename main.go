@@ -75,6 +75,7 @@ func (b *BFFNT) Upscale(scale uint8, upscaledImages []image.NRGBA) {
 
 	b.FINF.Upscale(scale)
 	b.TGLP.Upscale(scale, upscaledImages)
+	b.KRNG.Upscale(scale)
 }
 
 // This BFFNT file is Breath of the Wild's NormalS_00.bffnt. The goal of the
@@ -126,7 +127,7 @@ func main() {
 	upscaledSheets := make([]image.NRGBA, 0)
 	upscaledSheets = append(upscaledSheets, *sheet0)
 
-	// bffnt.Upscale(2, upscaledSheets)
+	bffnt.Upscale(2, upscaledSheets)
 
 	encodedRaw := bffnt.Encode()
 

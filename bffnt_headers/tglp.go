@@ -62,7 +62,11 @@ func (tglp *TGLP) Upscale(scale uint8, upscaledSheetData []image.NRGBA) {
 	tglp.BaselinePosition *= uint16(scale)
 	tglp.SheetWidth *= uint16(scale)
 	tglp.SheetHeight *= uint16(scale)
-	tglp.SheetData = upscaledSheetData
+
+	blankSheets := []image.NRGBA{
+		*image.NewNRGBA(image.Rect(0, 0, 1024, 2048)),
+	}
+	tglp.SheetData = blankSheets
 }
 
 // Version 4 (BFFNT)

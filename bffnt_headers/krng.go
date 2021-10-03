@@ -185,3 +185,11 @@ func getFirstCharsOrdered(kerningTable map[uint16][]kerningPair) []uint16 {
 
 	return res
 }
+
+func (krng *KRNG) Upscale(scale uint8) {
+	for _, kPairs := range krng.KerningTable {
+		for _, pair := range kPairs {
+			pair.KerningValue *= int16(scale)
+		}
+	}
+}
