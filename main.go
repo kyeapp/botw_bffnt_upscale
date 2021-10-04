@@ -76,6 +76,10 @@ func (b *BFFNT) Upscale(scale uint8, upscaledImages []image.NRGBA) {
 	b.FINF.Upscale(scale)
 	b.TGLP.Upscale(scale, upscaledImages)
 	b.KRNG.Upscale(scale)
+
+	for i, _ := range b.CWDHs {
+		b.CWDHs[i].Upscale(scale)
+	}
 }
 
 // This BFFNT file is Breath of the Wild's NormalS_00.bffnt. The goal of the

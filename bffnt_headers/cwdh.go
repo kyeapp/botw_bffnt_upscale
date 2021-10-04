@@ -23,8 +23,19 @@ type CWDH struct { //        Offset  Size  Description
 
 type glyphInfo struct {
 	LeftWidth  int8 // left spacing
-	GlyphWidth int8
-	CharWidth  int8
+	GlyphWidth uint8
+	CharWidth  uint8
+}
+
+func (cwdh *CWDH) Upscale(scale uint8) {
+	for i, _ := range cwdh.Glyphs {
+		cwdh.Glyphs[i].LeftWidth *= int8(scale)
+		cwdh.Glyphs[i].GlyphWidth *= scale
+		cwdh.Glyphs[i].CharWidth *= scale
+
+		fmt.Println(cwdh.Glyphs[i])
+	}
+
 }
 
 func (cwdh *CWDH) Decode(raw []byte, cwdhOffset uint32) {
@@ -45,8 +56,8 @@ func (cwdh *CWDH) Decode(raw []byte, cwdhOffset uint32) {
 	for i := int(cwdh.StartIndex); i <= int(cwdh.EndIndex); i++ {
 		currentGlyph := glyphInfo{
 			LeftWidth:  int8(data[dataPos]),
-			GlyphWidth: int8(data[dataPos+1]),
-			CharWidth:  int8(data[dataPos+2]),
+			GlyphWidth: uint8(data[dataPos+1]),
+			CharWidth:  uint8(data[dataPos+2]),
 		}
 		resultGlyphs = append(resultGlyphs, currentGlyph)
 		dataPos += 3

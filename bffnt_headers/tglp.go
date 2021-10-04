@@ -55,18 +55,23 @@ type TGLP struct { //    Offset  Size  Description
 }
 
 func (tglp *TGLP) Upscale(scale uint8, upscaledSheetData []image.NRGBA) {
+	// manual changes
+	tglp.SheetWidth = uint16(1024)
+	tglp.SheetHeight = uint16(2048)
+	tglp.NumOfSheets = uint8(1)
+	tglp.NumOfColumns = 20
+	tglp.NumOfRows = 33
+
+	tglp.SheetSize = uint32(tglp.SheetWidth) * uint32(tglp.SheetHeight)
 	tglp.CellWidth *= scale
 	tglp.CellHeight *= scale
 	tglp.MaxCharWidth *= scale
-	tglp.SheetSize *= uint32(scale) * uint32(scale)
 	tglp.BaselinePosition *= uint16(scale)
-	tglp.SheetWidth *= uint16(scale)
-	tglp.SheetHeight *= uint16(scale)
 
-	blankSheets := []image.NRGBA{
-		*image.NewNRGBA(image.Rect(0, 0, 1024, 2048)),
-	}
-	tglp.SheetData = blankSheets
+	// blankSheets := []image.NRGBA{
+	// 	*image.NewNRGBA(image.Rect(0, 0, 1024, 1024)),
+	// 	*image.NewNRGBA(image.Rect(0, 0, 1024, 1024)),
+	// }
 }
 
 // Version 4 (BFFNT)
@@ -89,6 +94,21 @@ func (tglp *TGLP) Decode(raw []byte) {
 
 	tglp.DecodeSheets()
 	if Debug {
+		fmt.Println("MagicHeader     ", tglp.MagicHeader)
+		fmt.Println("SectionSize     ", tglp.SectionSize)
+		fmt.Println("CellWidth       ", tglp.CellWidth)
+		fmt.Println("CellHeight      ", tglp.CellHeight)
+		fmt.Println("NumOfSheets     ", tglp.NumOfSheets)
+		fmt.Println("MaxCharWidth    ", tglp.MaxCharWidth)
+		fmt.Println("SheetSize       ", tglp.SheetSize)
+		fmt.Println("BaselinePosition", tglp.BaselinePosition)
+		fmt.Println("SheetImageFormat", tglp.SheetImageFormat)
+		fmt.Println("NumOfColumns    ", tglp.NumOfColumns)
+		fmt.Println("NumOfRows       ", tglp.NumOfRows)
+		fmt.Println("SheetWidth      ", tglp.SheetWidth)
+		fmt.Println("SheetHeight     ", tglp.SheetHeight)
+		fmt.Println("SheetDataOffset ", tglp.SheetDataOffset)
+
 		fmt.Printf("Read section total of %d bytes\n", dataEnd-headerStart)
 		fmt.Println("Byte offsets start(inclusive) to end(exclusive)================")
 		fmt.Printf("header      %-8d to  %d\n", headerStart, headerEnd)
@@ -155,10 +175,12 @@ func (tglp *TGLP) Encode() []byte {
 	var res []byte
 
 	tglp.SectionSize = tglp.SheetDataOffset - CFNT_HEADER_SIZE - FINF_HEADER_SIZE + tglp.SheetSize*uint32(tglp.NumOfSheets)
+	fmt.Println(tglp.SectionSize)
 
 	header := tglp.EncodeHeader()
 	padding := make([]byte, tglp.computePredataPadding())
-	allSheetData := tglp.EncodeSheetData()
+	allSheetData := tglp.EncodeBlankSheets()
+	fmt.Println(len(allSheetData))
 
 	res = append(res, header...)
 	res = append(res, padding...)
@@ -170,6 +192,7 @@ func (tglp *TGLP) Encode() []byte {
 }
 
 func (tglp *TGLP) EncodeHeader() []byte {
+
 	var buf bytes.Buffer
 	w := bufio.NewWriter(&buf)
 
@@ -201,6 +224,15 @@ func (tglp *TGLP) computePredataPadding() int {
 	// aaaaaa bbbbbbbbbbbbb cccccccccccccc 00000000000000000000 ddddddddddddddddddddddd
 
 	return int(tglp.SheetDataOffset) - CFNT_HEADER_SIZE - FINF_HEADER_SIZE - TGLP_HEADER_SIZE
+}
+
+// So since switch toolbox already has the ability to swizzle and replace
+// textures. I'm going to skip this part.  Generate a template BFFNT file with
+// everything but the images, and then open the template bffnt file in switch
+// toolbox and do a texture replace.  Switch toolbox will then swizzle and
+// encode the sheets for me.
+func (tglp *TGLP) EncodeBlankSheets() []byte {
+	return make([]byte, int(tglp.SheetWidth)*int(tglp.SheetHeight)*int(tglp.NumOfSheets))
 }
 
 func (tglp *TGLP) EncodeSheetData() []byte {
