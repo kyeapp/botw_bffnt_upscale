@@ -171,9 +171,16 @@ func generateTexture(b BFFNT) {
 	})
 
 	const (
-		scale   = 3
-		xOffset = 2 * scale // this is so text outline can be done manually
+		// these are the original pixel counts meant for
+		// scale 1 for 1280×720
+		// scale 2 for 2560 × 1440
+		// scale 3 for 3840 x 2160
+
 		// attributes of NormalS_00.bffnt
+		scale   = 3
+		xOffset = 2 * scale // this is so text outline can be done manually, I use gimp
+		// xOffset = 0
+
 		cellWidth   = 24 * scale
 		cellHeight  = 30 * scale
 		columnCount = 20
@@ -187,7 +194,7 @@ func generateTexture(b BFFNT) {
 		realCellHeight = cellHeight + 1
 
 		// scale base 10
-		fontSize = 30
+		fontSize = 10 * scale
 	)
 
 	dat, err := os.ReadFile("./FOT-RodinNTLGPro-DB.BFOTF.otf")
@@ -198,10 +205,10 @@ func generateTexture(b BFFNT) {
 	handleErr(err)
 
 	face, err := opentype.NewFace(f, &opentype.FaceOptions{
-		Size:    fontSize,
-		DPI:     144,
-		Hinting: font.HintingNone, // the font resolution should be high enough
-		// Hinting: font.HintingFull,
+		Size: fontSize,
+		DPI:  144,
+		// Hinting: font.HintingNone, // the font resolution should be high enough
+		Hinting: font.HintingFull,
 	})
 	handleErr(err)
 

@@ -55,18 +55,20 @@ type TGLP struct { //    Offset  Size  Description
 }
 
 func (tglp *TGLP) Upscale(scale uint8) {
-	// manual changes
-	tglp.SheetWidth = uint16(1024)
-	tglp.SheetHeight = uint16(2048)
-	tglp.NumOfSheets = uint8(1)
-	tglp.NumOfColumns = 20
-	tglp.NumOfRows = 33
-
+	tglp.SheetWidth *= uint16(scale)
+	tglp.SheetHeight *= uint16(scale)
 	tglp.SheetSize = uint32(tglp.SheetWidth) * uint32(tglp.SheetHeight)
 	tglp.CellWidth *= scale
 	tglp.CellHeight *= scale
 	tglp.MaxCharWidth *= scale
 	tglp.BaselinePosition *= uint16(scale)
+
+	// manual changes
+	// tglp.SheetWidth = uint16(tglp.SheetWidth * scale)
+	// tglp.SheetHeight = uint16(1024 * scale)
+	// tglp.NumOfSheets = uint8(1)
+	// tglp.NumOfColumns = 20
+	// tglp.NumOfRows = 33
 }
 
 // Version 4 (BFFNT)
