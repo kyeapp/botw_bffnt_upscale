@@ -22,9 +22,14 @@ type CMAP struct { //         Offset  Size  Description
 
 	CharacterOffset uint16 // used for direct maps
 	// This is a pair of arrays that hold the ascii and it's index in the font
-	// texture.
+	// texture. Characters that have an index of MaxUint16 (65535) are to be ignored.
 	CharAscii []uint16
 	CharIndex []uint16
+}
+
+type AsciiIndexPair struct {
+	CharAscii uint16
+	CharIndex uint16
 }
 
 func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
