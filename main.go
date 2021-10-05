@@ -2,6 +2,7 @@ package main
 
 import (
 	"bffnt/bffnt_headers"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"image"
@@ -142,6 +143,13 @@ func main() {
 	return
 }
 
+func pprint(s interface{}) {
+	jsonBytes, err := json.MarshalIndent(s, "", "  ")
+	handleErr(err)
+
+	fmt.Printf("%s\n", string(jsonBytes))
+}
+
 func generateTexture(b BFFNT) {
 	pairSlice := make([]bffnt_headers.AsciiIndexPair, 0)
 	for _, cmap := range b.CMAPs {
@@ -151,15 +159,15 @@ func generateTexture(b BFFNT) {
 					CharAscii: cmap.CharAscii[j],
 					CharIndex: cmap.CharIndex[j],
 				}
+
 				pairSlice = append(pairSlice, p)
 			}
 		}
 	}
-	fmt.Println(pairSlice)
+
 	sort.Slice(pairSlice, func(i, j int) bool {
-		return pairSlice[i].CharIndex < pairSlice[i].CharIndex
+		return pairSlice[i].CharIndex < pairSlice[j].CharIndex
 	})
-	fmt.Println(pairSlice)
 
 	const (
 		scale = 3
@@ -176,7 +184,8 @@ func generateTexture(b BFFNT) {
 		realCellWidth  = cellWidth + 1
 		realCellHeight = cellHeight + 1
 
-		fontSize = 10
+		// scale base 10
+		fontSize = 30
 	)
 
 	dat, err := os.ReadFile("./FOT-RodinNTLGPro-DB.BFOTF.otf")
@@ -187,12 +196,23 @@ func generateTexture(b BFFNT) {
 	handleErr(err)
 
 	face, err := opentype.NewFace(f, &opentype.FaceOptions{
-		Size:    fontSize * scale,
-		DPI:     144,
-		Hinting: font.HintingNone,
+		Size: fontSize,
+		DPI:  144,
+		// Hinting: font.HintingNone,
+		Hinting: font.HintingFull,
+		// Weight:  font.WeightBold,
 	})
 	handleErr(err)
 
+	fmt.Printf("open type: %T\n", f)
+	fmt.Printf("face: %T \n", face)
+	fmt.Printf("face metric ")
+	pprint(face.Metrics())
+
+	fmt.Printf("face metric ")
+	pprint(face.Metrics())
+
+	// drawer.MeasureString
 	dst := image.NewGray(image.Rect(0, 0, sheetWidth, sheetHeight))
 	d := font.Drawer{
 		Dst:  dst,
@@ -203,7 +223,7 @@ func generateTexture(b BFFNT) {
 
 	var k, x, y int
 
-	fmt.Println(len(pairSlice))
+	// fmt.Println(len(pairSlice))
 
 	for i := 0; i < rowCount; i++ {
 		x = 1
