@@ -160,6 +160,7 @@ func generateTexture(b BFFNT) {
 					CharIndex: cmap.CharIndex[j],
 				}
 
+				// fmt.Printf("(%d, %s), ", p.CharIndex, string(p.CharAscii))
 				pairSlice = append(pairSlice, p)
 			}
 		}
@@ -170,7 +171,8 @@ func generateTexture(b BFFNT) {
 	})
 
 	const (
-		scale = 3
+		scale   = 3
+		xOffset = 2 * scale // this is so text outline can be done manually
 		// attributes of NormalS_00.bffnt
 		cellWidth   = 24 * scale
 		cellHeight  = 30 * scale
@@ -196,11 +198,10 @@ func generateTexture(b BFFNT) {
 	handleErr(err)
 
 	face, err := opentype.NewFace(f, &opentype.FaceOptions{
-		Size: fontSize,
-		DPI:  144,
-		// Hinting: font.HintingNone,
-		Hinting: font.HintingFull,
-		// Weight:  font.WeightBold,
+		Size:    fontSize,
+		DPI:     144,
+		Hinting: font.HintingNone, // the font resolution should be high enough
+		// Hinting: font.HintingFull,
 	})
 	handleErr(err)
 
@@ -212,39 +213,48 @@ func generateTexture(b BFFNT) {
 	fmt.Printf("face metric ")
 	pprint(face.Metrics())
 
-	// drawer.MeasureString
-	dst := image.NewGray(image.Rect(0, 0, sheetWidth, sheetHeight))
-	d := font.Drawer{
+	// drawer.MeasureString can be used to modify kerning table
+	dst := image.NewAlpha(image.Rect(0, 0, sheetWidth, sheetHeight))
+	glyphDrawer := font.Drawer{
 		Dst:  dst,
 		Src:  image.White,
 		Face: face,
 		Dot:  fixed.P(0, 0),
 	}
 
-	var k, x, y int
+	var charIndex, x, y int
+	for rowIndex := 0; rowIndex < rowCount; rowIndex++ {
+		y = realCellHeight*rowIndex + baseLine
+		for columnIndex := 0; columnIndex < columnCount; columnIndex++ {
+			x = realCellWidth*columnIndex + xOffset
+			// fmt.Printf("The dot is at %v\n", glyphDrawer.Dot)
 
-	// fmt.Println(len(pairSlice))
+			specificAdjustments(charIndex)
 
-	for i := 0; i < rowCount; i++ {
-		x = 1
-		y = realCellHeight * i
-		for j := 0; j < columnCount; j++ {
-			x = realCellWidth * j
-			d.Dot = fixed.P(x, y+baseLine)
-			// fmt.Printf("The dot is at %v\n", d.Dot)
+			glyphDrawer.Dot = fixed.P(x, y)
+			glyphDrawer.DrawString(string(pairSlice[charIndex].CharAscii))
 
-			d.DrawString(string(pairSlice[k].CharAscii))
-			k++
+			charIndex++
 
-			if k == len(pairSlice) {
+			if charIndex == len(pairSlice) {
+				// exit early if no more characters to write
 				goto writePng
 			}
 		}
 	}
 
 writePng:
-	ff, err := os.OpenFile("test.png", os.O_CREATE|os.O_RDWR, 0644)
+	filename := "test.png"
+
+	_ = os.Remove(filename)
+
+	ff, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR, 0644)
 	handleErr(err)
 	err = png.Encode(ff, dst)
 	handleErr(err)
+}
+
+func specificAdjustments(index int) {
+	// if index ==
+
 }
