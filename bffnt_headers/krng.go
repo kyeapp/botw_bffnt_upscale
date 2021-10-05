@@ -48,6 +48,9 @@ type KRNG struct { // Offset  Size  Description
 func (krng *KRNG) Decode(bffntRaw []byte) {
 	// Since the kerning offset is not recorded we need to find it first.
 	headerStart := strings.Index(string(bffntRaw), KRNG_MAGIC_HEADER)
+	if headerStart == -1 {
+		return
+	}
 
 	headerEnd := headerStart + KRNG_HEADER_SIZE
 	headerRaw := bffntRaw[headerStart:headerEnd]
@@ -118,6 +121,10 @@ func (krng *KRNG) Decode(bffntRaw []byte) {
 }
 
 func (krng *KRNG) Encode() []byte {
+	if len(krng.KerningTable) == 0 {
+		return []byte{}
+	}
+
 	var dataBuf bytes.Buffer
 	dataWriter := bufio.NewWriter(&dataBuf)
 

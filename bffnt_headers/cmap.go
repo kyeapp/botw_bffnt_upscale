@@ -76,7 +76,7 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 			asciiSlice = append(asciiSlice, charAsciiCode)
 			indexSlice = append(indexSlice, charIndex)
 
-			fmt.Printf("direct %#U %d\n", rune(charAsciiCode), charIndex)
+			// fmt.Printf("direct %#U %d\n", rune(charAsciiCode), charIndex)
 		}
 
 		break
@@ -92,7 +92,7 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 			asciiSlice = append(asciiSlice, charAsciiCode)
 			indexSlice = append(indexSlice, charIndex)
 
-			fmt.Printf("table %#U %d\n", rune(charAsciiCode), charIndex)
+			// fmt.Printf("table %#U %d\n", rune(charAsciiCode), charIndex)
 
 			dataPos += 2
 		}
@@ -115,7 +115,7 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 			asciiSlice = append(asciiSlice, charAsciiCode)
 			indexSlice = append(indexSlice, charIndex)
 
-			fmt.Printf("individual %#U %d\n", rune(charAsciiCode), charIndex)
+			// fmt.Printf("individual %#U %d\n", rune(charAsciiCode), charIndex)
 
 			dataPos += 4
 		}

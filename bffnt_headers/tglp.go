@@ -56,7 +56,7 @@ type TGLP struct { //    Offset  Size  Description
 
 func (tglp *TGLP) Upscale(scale uint8) {
 	tglp.SheetWidth *= uint16(scale)
-	tglp.SheetHeight *= uint16(scale)
+	tglp.SheetHeight *= uint16(tglp.NumOfSheets) * uint16(scale)
 	tglp.SheetSize = uint32(tglp.SheetWidth) * uint32(tglp.SheetHeight)
 	tglp.CellWidth *= scale
 	tglp.CellHeight *= scale
@@ -66,7 +66,7 @@ func (tglp *TGLP) Upscale(scale uint8) {
 	// manual changes
 	// tglp.SheetWidth = uint16(tglp.SheetWidth * scale)
 	// tglp.SheetHeight = uint16(1024 * scale)
-	// tglp.NumOfSheets = uint8(1)
+	tglp.NumOfSheets = uint8(1) // its just easier not to deal with multiple pages
 	// tglp.NumOfColumns = 20
 	// tglp.NumOfRows = 33
 }
@@ -172,12 +172,12 @@ func (tglp *TGLP) Encode() []byte {
 	var res []byte
 
 	tglp.SectionSize = tglp.SheetDataOffset - CFNT_HEADER_SIZE - FINF_HEADER_SIZE + tglp.SheetSize*uint32(tglp.NumOfSheets)
-	fmt.Println(tglp.SectionSize)
+	// fmt.Println(tglp.SectionSize)
 
 	header := tglp.EncodeHeader()
 	padding := make([]byte, tglp.computePredataPadding())
 	allSheetData := tglp.EncodeBlankSheets()
-	fmt.Println(len(allSheetData))
+	// fmt.Println(len(allSheetData))
 
 	res = append(res, header...)
 	res = append(res, padding...)

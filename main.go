@@ -129,11 +129,11 @@ func main() {
 
 	// this upscales the character width height and kerning tables.
 	// the images are blank.
-	bffnt.Upscale(3)
+	bffnt.Upscale(2)
 
 	encodedRaw := bffnt.Encode()
 
-	err = os.WriteFile("output.bffnt", encodedRaw, 0644)
+	err = os.WriteFile("template.bffnt", encodedRaw, 0644)
 	handleErr(err)
 
 	// bffnt.Decode(encodedRaw)
@@ -150,6 +150,7 @@ func pprint(s interface{}) {
 	fmt.Printf("%s\n", string(jsonBytes))
 }
 
+// https://pkg.go.dev/golang.org/x/image/font/sfnt#Font
 func generateTexture(b BFFNT) {
 	pairSlice := make([]bffnt_headers.AsciiIndexPair, 0)
 	for _, cmap := range b.CMAPs {
@@ -170,55 +171,49 @@ func generateTexture(b BFFNT) {
 		return pairSlice[i].CharIndex < pairSlice[j].CharIndex
 	})
 
-	const (
+	fmt.Printf("%d characters indexed\n", len(pairSlice))
+
+	var (
 		// these are the original pixel counts meant for
 		// scale 1 for 1280×720
 		// scale 2 for 2560 × 1440
 		// scale 3 for 3840 x 2160
+		scale = 2
 
-		// attributes of NormalS_00.bffnt
-		scale   = 3
-		xOffset = 2 * scale // this is so text outline can be done manually, I use gimp
-		// xOffset = 0
+		// filename       = fmt.Sprintf("Normal_00_%dx.png", scale)
+		// fontSize       = 45 // 4k
+		// fontSize = 32 - xOffset // 2k
 
-		cellWidth   = 24 * scale
-		cellHeight  = 30 * scale
-		columnCount = 20
-		rowCount    = 33
+		// filename = fmt.Sprintf("Caption_00_%dx.png", scale)
+		// fontSize = 9 * scale
+		// xOffset  = 0
 
-		baseLine    = 23 * scale // ascent
-		sheetHeight = 1024 * scale
-		sheetWidth  = 512 * scale
+		filename = fmt.Sprintf("NormalS_00_%dx.png", scale)
+		fontSize = 10 * scale
+		xOffset  = 2 * scale
 
+		cellWidth      = int(b.TGLP.CellWidth)
+		cellHeight     = int(b.TGLP.CellHeight)
+		columnCount    = int(b.TGLP.NumOfColumns)
+		baseline       = int(b.TGLP.BaselinePosition) + scale
+		sheetHeight    = int(b.TGLP.SheetHeight)
+		sheetWidth     = int(b.TGLP.SheetWidth)
 		realCellWidth  = cellWidth + 1
 		realCellHeight = cellHeight + 1
-
-		// scale base 10
-		fontSize = 10 * scale
 	)
 
 	dat, err := os.ReadFile("./FOT-RodinNTLGPro-DB.BFOTF.otf")
 	handleErr(err)
 
-	// f, err := opentype.Parse(goitalic.TTF)
 	f, err := opentype.Parse(dat)
 	handleErr(err)
 
 	face, err := opentype.NewFace(f, &opentype.FaceOptions{
-		Size: fontSize,
-		DPI:  144,
-		// Hinting: font.HintingNone, // the font resolution should be high enough
+		Size:    float64(fontSize),
+		DPI:     144,
 		Hinting: font.HintingFull,
 	})
 	handleErr(err)
-
-	fmt.Printf("open type: %T\n", f)
-	fmt.Printf("face: %T \n", face)
-	fmt.Printf("face metric ")
-	pprint(face.Metrics())
-
-	fmt.Printf("face metric ")
-	pprint(face.Metrics())
 
 	// drawer.MeasureString can be used to modify kerning table
 	dst := image.NewAlpha(image.Rect(0, 0, sheetWidth, sheetHeight))
@@ -230,38 +225,49 @@ func generateTexture(b BFFNT) {
 	}
 
 	var charIndex, x, y int
-	for rowIndex := 0; rowIndex < rowCount; rowIndex++ {
-		y = realCellHeight*rowIndex + baseLine
+	for rowIndex := 0; rowIndex < 9999; rowIndex++ {
+		y = realCellHeight*rowIndex + baseline
 		for columnIndex := 0; columnIndex < columnCount; columnIndex++ {
-			x = realCellWidth*columnIndex + xOffset
+			x = realCellWidth * columnIndex
+			glyphDrawer.Dot = fixed.P(x, y)
 			// fmt.Printf("The dot is at %v\n", glyphDrawer.Dot)
 
-			specificAdjustments(charIndex)
+			glyph := string(pairSlice[charIndex].CharAscii)
+			glyphBoundAtDot, _ := glyphDrawer.BoundString(glyph)
+			// fmt.Println(x, glyphBoundAtDot.Min.X, glyphBoundAtDot.Min.Y, glyphBoundAtDot.Max.X, glyphBoundAtDot.Max.Y)
 
-			glyphDrawer.Dot = fixed.P(x, y)
-			glyphDrawer.DrawString(string(pairSlice[charIndex].CharAscii))
+			// calculate glyph x offset in it's cell so that there is only 1
+			// pixel length between the cell and the left most pixel of the
+			// glyph we are abount to draw. Generally the characters are draw
+			// to the right of the Dot but its possible for this to be
+			// negative. e.x. character j's left most pixel falls to the left
+			// of the dot.
+			leftAlignOffset := int(glyphBoundAtDot.Min.X/64) - x
+			// fmt.Println(leftAlignOffset)
+
+			// Use this to calculate kerning
+
+			glyphDrawer.Dot = fixed.P(x-leftAlignOffset+(xOffset)+1, y)
+			glyphDrawer.DrawString(glyph)
+
+			// Alight character left
 
 			charIndex++
 
+			// exit when no more characters
 			if charIndex == len(pairSlice) {
-				// exit early if no more characters to write
 				goto writePng
 			}
 		}
 	}
 
 writePng:
-	filename := "test.png"
 
 	_ = os.Remove(filename)
 
-	ff, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR, 0644)
+	fmt.Println("wrote glyphs to", filename)
+	textureFile, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR, 0644)
 	handleErr(err)
-	err = png.Encode(ff, dst)
+	err = png.Encode(textureFile, dst)
 	handleErr(err)
-}
-
-func specificAdjustments(index int) {
-	// if index ==
-
 }

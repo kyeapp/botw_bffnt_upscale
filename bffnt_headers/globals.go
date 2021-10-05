@@ -63,7 +63,9 @@ func pprint(s interface{}) {
 // If these bytes are really unused we should expect them to be zero'd out.
 func verifyLeftoverBytes(leftovers []byte) {
 	if len(leftovers) > 0 {
-		fmt.Printf("There are %d bytes left over", len(leftovers))
+		if Debug {
+			fmt.Printf("%d bytes left over", len(leftovers))
+		}
 
 		for _, singleByte := range leftovers {
 			if singleByte != 0 {
