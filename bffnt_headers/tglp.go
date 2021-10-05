@@ -54,7 +54,7 @@ type TGLP struct { //    Offset  Size  Description
 	SheetData        []image.NRGBA // separated unswizzled images. Used for encoding.
 }
 
-func (tglp *TGLP) Upscale(scale uint8, upscaledSheetData []image.NRGBA) {
+func (tglp *TGLP) Upscale(scale uint8) {
 	// manual changes
 	tglp.SheetWidth = uint16(1024)
 	tglp.SheetHeight = uint16(2048)
@@ -67,11 +67,6 @@ func (tglp *TGLP) Upscale(scale uint8, upscaledSheetData []image.NRGBA) {
 	tglp.CellHeight *= scale
 	tglp.MaxCharWidth *= scale
 	tglp.BaselinePosition *= uint16(scale)
-
-	// blankSheets := []image.NRGBA{
-	// 	*image.NewNRGBA(image.Rect(0, 0, 1024, 1024)),
-	// 	*image.NewNRGBA(image.Rect(0, 0, 1024, 1024)),
-	// }
 }
 
 // Version 4 (BFFNT)
@@ -92,7 +87,7 @@ func (tglp *TGLP) Decode(raw []byte) {
 	calculatedTGLPSectionSize := TGLP_HEADER_SIZE + tglp.computePredataPadding() + len(tglp.AllSheetData)
 	assertEqual(int(tglp.SectionSize), calculatedTGLPSectionSize)
 
-	tglp.DecodeSheets()
+	// tglp.DecodeSheets()
 	if Debug {
 		fmt.Println("MagicHeader     ", tglp.MagicHeader)
 		fmt.Println("SectionSize     ", tglp.SectionSize)

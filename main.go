@@ -4,12 +4,8 @@ import (
 	"bffnt/bffnt_headers"
 	"flag"
 	"fmt"
-	"image"
-	"image/png"
 	"io/ioutil"
 	"os"
-
-	"github.com/disintegration/imaging"
 )
 
 type BFFNT struct {
@@ -68,18 +64,19 @@ func (b *BFFNT) Encode() []byte {
 // This is to be used to upscale the resolution of the a texture. It will make
 // the appropriate calculations based on the amount of scaling specified
 // It will be up to the user to provide the upscaled images in a png format
-func (b *BFFNT) Upscale(scale uint8, upscaledImages []image.NRGBA) {
+func (b *BFFNT) Upscale(scale uint8) {
 	fmt.Println("upscaling image by factor of", scale)
 	// TODO: Instead of an integer scaler. change this to be a ratio. you could
 	// then do gradient scaling.  e.x. scale by 1.5x
 
 	b.FINF.Upscale(scale)
-	b.TGLP.Upscale(scale, upscaledImages)
-	b.KRNG.Upscale(scale)
+	b.TGLP.Upscale(scale)
 
 	for i, _ := range b.CWDHs {
 		b.CWDHs[i].Upscale(scale)
 	}
+
+	b.KRNG.Upscale(scale)
 }
 
 // This BFFNT file is Breath of the Wild's NormalS_00.bffnt. The goal of the
@@ -116,22 +113,9 @@ func main() {
 	handleErr(err)
 	bffnt.Decode(bffntRaw)
 
-	upscaledReader, err := os.Open("./sheet_0_waifu2x.png")
-	handleErr(err)
-	img, err := png.Decode(upscaledReader)
-	handleErr(err)
-
-	g := img.(*image.Gray)
-	fmt.Printf("image type: %T\n", g)
-
-	// I'm just using the flip function to convert to NRGBA
-	nrgbaFlipped := imaging.FlipV(g.SubImage(g.Rect))
-	sheet0 := imaging.FlipV(nrgbaFlipped.SubImage(nrgbaFlipped.Rect))
-
-	upscaledSheets := make([]image.NRGBA, 0)
-	upscaledSheets = append(upscaledSheets, *sheet0)
-
-	bffnt.Upscale(2, upscaledSheets)
+	// this upscales the character width height and kerning tables.
+	// the images are blank.
+	bffnt.Upscale(3)
 
 	encodedRaw := bffnt.Encode()
 

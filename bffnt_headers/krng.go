@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"sort"
 	"strings"
 )
@@ -107,7 +106,7 @@ func (krng *KRNG) Decode(bffntRaw []byte) {
 
 		kerningMap[firstChar] = kerningPairSlice
 
-		fmt.Println(string(firstChar), kerningMap[firstChar])
+		// fmt.Println(string(firstChar), kerningMap[firstChar])
 	}
 
 	// find where the last table data resides so we can verify leftover bytes
