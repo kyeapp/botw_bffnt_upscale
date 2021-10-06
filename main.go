@@ -100,16 +100,27 @@ func (b *BFFNT) Upscale(scale uint8) {
 const (
 	// fontName = "Ancient"
 	// fontName = "Special"
-	// fontName = "Caption"
+	fontName = "Caption"
+	fontFile = "./nintendo_fonts/FOT-RodinNTLG-Pro-M.otf"
+
 	// fontName = "Normal"
-	fontName = "NormalS"
+	// fontFile = "./nintendo_fonts/FOT-RodinNTLG-Pro-B.otf"
+
+	// fontName = "NormalS"
+	// fontFile = "./nintendo_fonts/FOT-RodinNTLGPro-DB.BFOTF"
+
 	// fontName = "External"
 )
 
 var (
-	scale = 2 // how much to upscale by
+
+	// scale 1 for 1280×720
+	// scale 2 for 2560 × 1440
+	// scale 3 for 3840 x 2160
+	scale = 2
 
 	testBffntFile = fmt.Sprintf("./WiiU_fonts/botw/%[1]s/%[1]s_00.bffnt", fontName)
+
 	// testBffntFile = "./WiiU_fonts/comicfont/Normal_00.bffnt"
 	// testBffntFile = "./WiiU_fonts/kirbysans/Normal_00.bffnt"
 	// testBffntFile = "./WiiU_fonts/kirbyscript/Normal_00.bffnt"
@@ -181,23 +192,20 @@ func generateTexture(b BFFNT) {
 
 	var (
 		// these are the original pixel counts meant for
-		// scale 1 for 1280×720
-		// scale 2 for 2560 × 1440
-		// scale 3 for 3840 x 2160
 
 		// Normal
 		// filename       = fmt.Sprintf("Normal_00_%dx.png", scale)
-		// fontSize       = 45 // 4k
-		// fontSize = 32 - outlineOffset // 2k
+		// fontSize      = 30 // 2k
+		// outlineOffset = 0
 
 		// Caption
-		// fontSize      = 9 * scale
-		// outlineOffset = 0
+		fontSize      = 9 * scale
+		outlineOffset = 0
 
 		// NormalS
 		// NormalS Characters will need a 3px wide outline with 20% opacaity. I use GIMP.
-		fontSize      = 10 * scale
-		outlineOffset = 2 * scale
+		// fontSize      = 10 * scale
+		// outlineOffset = 2 * scale
 
 		filename    = fmt.Sprintf("%s_00_%dx.png", fontName, scale)
 		cellWidth   = int(b.TGLP.CellWidth)
@@ -213,7 +221,7 @@ func generateTexture(b BFFNT) {
 		realCellHeight = cellHeight + 1
 	)
 
-	dat, err := os.ReadFile("./FOT-RodinNTLGPro-DB.BFOTF.otf")
+	dat, err := os.ReadFile(fontFile)
 	handleErr(err)
 
 	f, err := opentype.Parse(dat)
