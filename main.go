@@ -97,14 +97,18 @@ func (b *BFFNT) Upscale(scale uint8) {
 // This BFFNT file is Breath of the Wild's NormalS_00.bffnt. The goal of the
 // project is to create a bffnt encoder/decoder so I can upscale this font
 
-const (
-	// testBffntFile = "./WiiU_fonts/botw/Ancient/Ancient_00.bffnt"
-	// testBffntFile = "./WiiU_fonts/botw/Special/Special_00.bffnt"
-	testBffntFile = "./WiiU_fonts/botw/Caption/Caption_00.bffnt"
-	// testBffntFile = "./WiiU_fonts/botw/Normal/Normal_00.bffnt"
-	// testBffntFile = "./WiiU_fonts/botw/NormalS/NormalS_00.bffnt"
-	// testBffntFile = "./WiiU_fonts/botw/External/External_00.bffnt"
+// const fontName = "Ancient"
+// const fontName = "Special"
+const fontName = "Caption"
 
+// const fontName = "Normal"
+// const fontName = "NormalS"
+// const fontName = "External"
+
+var (
+	scale = 2 // how much to upscale by
+
+	testBffntFile = fmt.Sprintf("./WiiU_fonts/botw/%[1]s/%[1]s_00.bffnt", fontName)
 	// testBffntFile = "./WiiU_fonts/comicfont/Normal_00.bffnt"
 	// testBffntFile = "./WiiU_fonts/kirbysans/Normal_00.bffnt"
 	// testBffntFile = "./WiiU_fonts/kirbyscript/Normal_00.bffnt"
@@ -130,7 +134,7 @@ func main() {
 
 	// this upscales the character width height and kerning tables.
 	// the images are blank.
-	bffnt.Upscale(2)
+	bffnt.Upscale(uint8(scale))
 
 	encodedRaw := bffnt.Encode()
 
@@ -179,20 +183,22 @@ func generateTexture(b BFFNT) {
 		// scale 1 for 1280×720
 		// scale 2 for 2560 × 1440
 		// scale 3 for 3840 x 2160
-		scale = 2
 
+		// Normal
 		// filename       = fmt.Sprintf("Normal_00_%dx.png", scale)
 		// fontSize       = 45 // 4k
-		// fontSize = 32 - xOffset // 2k
+		// fontSize = 32 - outlineOffset // 2k
 
-		filename = fmt.Sprintf("Caption_00_%dx.png", scale)
-		fontSize = 9 * scale
-		xOffset  = 0
+		// Caption
+		fontSize      = 9 * scale
+		outlineOffset = 0
 
+		// NormalS
 		// filename = fmt.Sprintf("NormalS_00_%dx.png", scale)
 		// fontSize = 10 * scale
-		// xOffset  = 2 * scale
+		// outlineOffset  = 2 * scale
 
+		filename    = fmt.Sprintf("%s_00_%dx.png", fontName, scale)
 		cellWidth   = int(b.TGLP.CellWidth)
 		cellHeight  = int(b.TGLP.CellHeight)
 		columnCount = int(b.TGLP.NumOfColumns)
@@ -252,7 +258,7 @@ func generateTexture(b BFFNT) {
 			// Use this to calculate kerning
 
 			y_nintendo := y - scale // manual adjust to compensate difference between nintendo font generator and mine.
-			glyphDrawer.Dot = fixed.P(x-leftAlignOffset+(xOffset)+1, y_nintendo)
+			glyphDrawer.Dot = fixed.P(x-leftAlignOffset+(outlineOffset)+1, y_nintendo)
 			glyphDrawer.DrawString(glyph)
 
 			// Alight character left
