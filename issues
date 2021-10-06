@@ -1,0 +1,32 @@
+There are rendering issues in nintendo's BOTW that can cause the font to stretch. It is unsure if this is the problem with the font file or with nintendo.
+
+The bug that prevents this from being usable.
+Ocasionally. 1 of the 6 fonts can render stretched, specifically NormalS_00.bffnt. Unfortunately this is also one the most used fonts. It is used on the map, the item menu, loading screen, and game menu. This is the biggest issue to overcome at this point.
+
+Maybe my ratios are off by 1.
+There there is 1 pixel length separator between the characters in the texture
+which means if the game is if doing some sort of calculation. the font file
+could be causing an off by 1 bug if any width calculations are done using
+character width+1
+
+There is a bug in the game.
+The amount of stretch is proportional of a replacement font is proportional to
+the original font. This does mean that if you replace the font with a
+height/width ratio is bigger (font is narrower) it can cause the font to appear
+squished instead of streteched along the x axis.
+
+
+
+
+
+
+What it is not.
+This is not a bug with cemu I believe. The game renders fine at native resolution, with native font.
+
+Not a bug with fps++
+Turning this off still has issues.
+
+Not a bug with vulcan openGL.
+bug is preset on both.
+
+
