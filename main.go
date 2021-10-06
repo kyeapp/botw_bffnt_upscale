@@ -100,9 +100,9 @@ func (b *BFFNT) Upscale(scale uint8) {
 const (
 	// testBffntFile = "./WiiU_fonts/botw/Ancient/Ancient_00.bffnt"
 	// testBffntFile = "./WiiU_fonts/botw/Special/Special_00.bffnt"
-	// testBffntFile = "./WiiU_fonts/botw/Caption/Caption_00.bffnt"
+	testBffntFile = "./WiiU_fonts/botw/Caption/Caption_00.bffnt"
 	// testBffntFile = "./WiiU_fonts/botw/Normal/Normal_00.bffnt"
-	testBffntFile = "./WiiU_fonts/botw/NormalS/NormalS_00.bffnt"
+	// testBffntFile = "./WiiU_fonts/botw/NormalS/NormalS_00.bffnt"
 	// testBffntFile = "./WiiU_fonts/botw/External/External_00.bffnt"
 
 	// testBffntFile = "./WiiU_fonts/comicfont/Normal_00.bffnt"
@@ -185,20 +185,23 @@ func generateTexture(b BFFNT) {
 		// fontSize       = 45 // 4k
 		// fontSize = 32 - xOffset // 2k
 
-		// filename = fmt.Sprintf("Caption_00_%dx.png", scale)
-		// fontSize = 9 * scale
-		// xOffset  = 0
+		filename = fmt.Sprintf("Caption_00_%dx.png", scale)
+		fontSize = 9 * scale
+		xOffset  = 0
 
-		filename = fmt.Sprintf("NormalS_00_%dx.png", scale)
-		fontSize = 10 * scale
-		xOffset  = 2 * scale
+		// filename = fmt.Sprintf("NormalS_00_%dx.png", scale)
+		// fontSize = 10 * scale
+		// xOffset  = 2 * scale
 
-		cellWidth      = int(b.TGLP.CellWidth)
-		cellHeight     = int(b.TGLP.CellHeight)
-		columnCount    = int(b.TGLP.NumOfColumns)
-		baseline       = int(b.TGLP.BaselinePosition) + scale
-		sheetHeight    = int(b.TGLP.SheetHeight)
-		sheetWidth     = int(b.TGLP.SheetWidth)
+		cellWidth   = int(b.TGLP.CellWidth)
+		cellHeight  = int(b.TGLP.CellHeight)
+		columnCount = int(b.TGLP.NumOfColumns)
+		baseline    = int(b.TGLP.BaselinePosition) + scale
+		sheetHeight = int(b.TGLP.SheetHeight)
+		sheetWidth  = int(b.TGLP.SheetWidth)
+
+		// every cell is separated by 1 px length padding at the left and top.
+		realBaseline   = baseline + 1
 		realCellWidth  = cellWidth + 1
 		realCellHeight = cellHeight + 1
 	)
@@ -227,11 +230,11 @@ func generateTexture(b BFFNT) {
 
 	var charIndex, x, y int
 	for rowIndex := 0; rowIndex < 9999; rowIndex++ {
-		y = realCellHeight*rowIndex + baseline
+		y = realCellHeight*rowIndex + realBaseline
 		for columnIndex := 0; columnIndex < columnCount; columnIndex++ {
 			x = realCellWidth * columnIndex
 			glyphDrawer.Dot = fixed.P(x, y)
-			// fmt.Printf("The dot is at %v\n", glyphDrawer.Dot)
+			fmt.Printf("The dot is at %v\n", glyphDrawer.Dot)
 
 			glyph := string(pairSlice[charIndex].CharAscii)
 			glyphBoundAtDot, _ := glyphDrawer.BoundString(glyph)
@@ -248,7 +251,8 @@ func generateTexture(b BFFNT) {
 
 			// Use this to calculate kerning
 
-			glyphDrawer.Dot = fixed.P(x-leftAlignOffset+(xOffset)+1, y)
+			y_nintendo := y - scale // manual adjust to compensate difference between nintendo font generator and mine.
+			glyphDrawer.Dot = fixed.P(x-leftAlignOffset+(xOffset)+1, y_nintendo)
 			glyphDrawer.DrawString(glyph)
 
 			// Alight character left
@@ -270,7 +274,7 @@ writePng:
 	for y := 0; y < int(b.TGLP.SheetHeight); y += realCellHeight {
 		HLine(dst, 0, y, int(b.TGLP.SheetWidth)) // draw row
 	}
-	for y := int(b.TGLP.BaselinePosition); y < int(b.TGLP.SheetHeight); y += realCellHeight {
+	for y := int(b.TGLP.BaselinePosition) + 1; y < int(b.TGLP.SheetHeight); y += realCellHeight {
 		HLine(dst, 0, y, int(b.TGLP.SheetWidth)) // draw row
 	}
 
