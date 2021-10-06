@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"image/color"
 	"image/png"
 	"io/ioutil"
 	"os"
@@ -262,6 +263,16 @@ func generateTexture(b BFFNT) {
 	}
 
 writePng:
+	// draw grid lines. Good for debugging.
+	for x := 0; x < int(b.TGLP.SheetWidth); x += realCellWidth {
+		VLine(dst, x, 0, int(b.TGLP.SheetHeight)) // draw column
+	}
+	for y := 0; y < int(b.TGLP.SheetHeight); y += realCellHeight {
+		HLine(dst, 0, y, int(b.TGLP.SheetWidth)) // draw row
+	}
+	for y := int(b.TGLP.BaselinePosition); y < int(b.TGLP.SheetHeight); y += realCellHeight {
+		HLine(dst, 0, y, int(b.TGLP.SheetWidth)) // draw row
+	}
 
 	_ = os.Remove(filename)
 
@@ -270,4 +281,26 @@ writePng:
 	handleErr(err)
 	err = png.Encode(textureFile, dst)
 	handleErr(err)
+}
+
+// HLine draws a horizontal line
+func HLine(img *image.Alpha, x1, y, x2 int) {
+	for ; x1 <= x2; x1++ {
+		// if img.At(x1, y) != color.Transparent {
+		// 	fmt.Printf("%d, %d\n", x1, y)
+		// 	panic("character crosses gridline")
+		// }
+		if bffnt_headers.Debug {
+			img.Set(x1, y, color.Opaque)
+		}
+	}
+}
+
+// VLine draws a veritcal line
+func VLine(img *image.Alpha, x, y1, y2 int) {
+	for ; y1 <= y2; y1++ {
+		if bffnt_headers.Debug {
+			img.Set(x, y1, color.Opaque)
+		}
+	}
 }
