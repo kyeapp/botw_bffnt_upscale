@@ -97,13 +97,14 @@ func (b *BFFNT) Upscale(scale uint8) {
 // This BFFNT file is Breath of the Wild's NormalS_00.bffnt. The goal of the
 // project is to create a bffnt encoder/decoder so I can upscale this font
 
-// const fontName = "Ancient"
-// const fontName = "Special"
-const fontName = "Caption"
-
-// const fontName = "Normal"
-// const fontName = "NormalS"
-// const fontName = "External"
+const (
+	// fontName = "Ancient"
+	// fontName = "Special"
+	// fontName = "Caption"
+	// fontName = "Normal"
+	fontName = "NormalS"
+	// fontName = "External"
+)
 
 var (
 	scale = 2 // how much to upscale by
@@ -190,13 +191,13 @@ func generateTexture(b BFFNT) {
 		// fontSize = 32 - outlineOffset // 2k
 
 		// Caption
-		fontSize      = 9 * scale
-		outlineOffset = 0
+		// fontSize      = 9 * scale
+		// outlineOffset = 0
 
 		// NormalS
-		// filename = fmt.Sprintf("NormalS_00_%dx.png", scale)
-		// fontSize = 10 * scale
-		// outlineOffset  = 2 * scale
+		// NormalS Characters will need a 3px wide outline with 20% opacaity. I use GIMP.
+		fontSize      = 10 * scale
+		outlineOffset = 2 * scale
 
 		filename    = fmt.Sprintf("%s_00_%dx.png", fontName, scale)
 		cellWidth   = int(b.TGLP.CellWidth)
