@@ -2,7 +2,6 @@ package main
 
 import (
 	"bffnt/bffnt_headers"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"image"
@@ -21,6 +20,7 @@ import (
 // https://www.3dbrew.org/wiki/BCFNT#Version_4_.28BFFNT.29
 // http://wiki.tockdom.com/wiki/BRFNT_(File_Format)
 // https://github.com/KillzXGaming/Switch-Toolbox/blob/12dfbaadafb1ebcd2e07d239361039a8d05df3f7/File_Format_Library/FileFormats/Font/BXFNT/FontKerningTable.cs
+// https://torinak.com/font/lsfont.html
 
 type BFFNT struct {
 	CFNT  bffnt_headers.CFNT
@@ -114,18 +114,11 @@ const (
 
 var (
 
-	// scale 1 for 1280×720
-	// scale 2 for 2560 × 1440
-	// scale 3 for 3840 x 2160
-	scale = 2
-
-	testBffntFile = fmt.Sprintf("./WiiU_fonts/botw/%[1]s/%[1]s_00.bffnt", fontName)
-
-	// testBffntFile = "./WiiU_fonts/comicfont/Normal_00.bffnt"
-	// testBffntFile = "./WiiU_fonts/kirbysans/Normal_00.bffnt"
-	// testBffntFile = "./WiiU_fonts/kirbyscript/Normal_00.bffnt"
-	// testBffntFile = "./WiiU_fonts/popjoy_font/Normal_00.bffnt"
-	// testBffntFile = "./WiiU_fonts/turbofont/Normal_00.bffnt"
+// testBffntFile = "./WiiU_fonts/comicfont/Normal_00.bffnt"
+// testBffntFile = "./WiiU_fonts/kirbysans/Normal_00.bffnt"
+// testBffntFile = "./WiiU_fonts/kirbyscript/Normal_00.bffnt"
+// testBffntFile = "./WiiU_fonts/popjoy_font/Normal_00.bffnt"
+// testBffntFile = "./WiiU_fonts/turbofont/Normal_00.bffnt"
 )
 
 func handleErr(err error) {
@@ -138,7 +131,21 @@ func main() {
 	flag.BoolVar(&bffnt_headers.Debug, "d", false, "enable debug output")
 	flag.Parse()
 
-	bffntRaw, err = ioutil.ReadFile(testBffntFile)
+	// scale 1 for 1280×720 (original)
+	// scale 2 for 2560 × 1440
+	// scale 3 for 3840 x 2160
+
+	upscaleBffnt("Caption", "FOT-RodinNTLG-Pro-M.otf", 3)
+	upscaleBffnt("Normal", "FOT-RodinNTLG-Pro-B.otf", 3)
+	upscaleBffnt("NormalS", "FOT-RodinNTLGPro-DB.BFOTF", 3)
+
+	return
+}
+
+func upscaleBffnt(botwFontName string, fontFile string, scale int) {
+	bffntFile := fmt.Sprintf("./WiiU_fonts/botw/%[1]s/%[1]s_00.bffnt", botwFontName)
+	fmt.Println("Reading bffnt file %s", bffntFile)
+	bffntRaw, err = ioutil.ReadFile(bffntFile)
 
 	var bffnt BFFNT
 	handleErr(err)
@@ -150,25 +157,18 @@ func main() {
 
 	encodedRaw := bffnt.Encode()
 
-	err = os.WriteFile("template.bffnt", encodedRaw, 0644)
+	outputBffntFile := fmt.Sprintf("%s_00_%d_template.bffnt", botwFontName, scale)
+	err = os.WriteFile(outputBffntFile, encodedRaw, 0644)
 	handleErr(err)
 
 	// bffnt.Decode(encodedRaw)
 
-	generateTexture(bffnt)
-
-	return
-}
-
-func pprint(s interface{}) {
-	jsonBytes, err := json.MarshalIndent(s, "", "  ")
-	handleErr(err)
-
-	fmt.Printf("%s\n", string(jsonBytes))
+	fontFile = fmt.Sprintf("./nintendo_fonts/%s", fontName)
+	generateTexture(bffnt, botwFontName, fontFile, scale)
 }
 
 // https://pkg.go.dev/golang.org/x/image/font/sfnt#Font
-func generateTexture(b BFFNT) {
+func generateTexture(b BFFNT, fontName string, fontfile string, scale int) {
 	pairSlice := make([]bffnt_headers.AsciiIndexPair, 0)
 	for _, cmap := range b.CMAPs {
 		for j, _ := range cmap.CharAscii {
@@ -190,23 +190,28 @@ func generateTexture(b BFFNT) {
 
 	fmt.Printf("%d characters indexed\n", len(pairSlice))
 
-	var (
-		// these are the original pixel counts meant for
+	var fontSize int
+	var outlineOffset int
 
-		// Normal
-		// filename       = fmt.Sprintf("Normal_00_%dx.png", scale)
-		// fontSize      = 30 // 2k
-		// outlineOffset = 0
-
-		// Caption
-		fontSize      = 9 * scale
+	// Caption
+	switch fontName {
+	case "Caption":
+		fontSize = 9 * scale
 		outlineOffset = 0
 
-		// NormalS
-		// NormalS Characters will need a 3px wide outline with 20% opacaity. I use GIMP.
-		// fontSize      = 10 * scale
-		// outlineOffset = 2 * scale
+	case "Normal":
+		fontSize = 15 * scale // 2k
+		outlineOffset = 0
 
+	case "NormalS":
+		fontSize = 10 * scale
+		outlineOffset = 2 * scale // NormalS Characters will need a 3px wide outline with 20% opacaity. I use GIMP.
+
+	default:
+		panic("file texture generation settings unknown")
+	}
+
+	var (
 		filename    = fmt.Sprintf("%s_00_%dx.png", fontName, scale)
 		cellWidth   = int(b.TGLP.CellWidth)
 		cellHeight  = int(b.TGLP.CellHeight)
@@ -221,6 +226,7 @@ func generateTexture(b BFFNT) {
 		realCellHeight = cellHeight + 1
 	)
 
+	fmt.Println("Reading font file %s", fontFile)
 	dat, err := os.ReadFile(fontFile)
 	handleErr(err)
 
@@ -249,7 +255,7 @@ func generateTexture(b BFFNT) {
 		for columnIndex := 0; columnIndex < columnCount; columnIndex++ {
 			x = realCellWidth * columnIndex
 			glyphDrawer.Dot = fixed.P(x, y)
-			fmt.Printf("The dot is at %v\n", glyphDrawer.Dot)
+			// fmt.Printf("The dot is at %v\n", glyphDrawer.Dot)
 
 			glyph := string(pairSlice[charIndex].CharAscii)
 			glyphBoundAtDot, _ := glyphDrawer.BoundString(glyph)
@@ -266,7 +272,7 @@ func generateTexture(b BFFNT) {
 
 			// Use this to calculate kerning
 
-			y_nintendo := y - scale // manual adjust to compensate difference between nintendo font generator and mine.
+			y_nintendo := y - scale // manual adjust to compensate y difference between nintendo font generator and mine.
 			glyphDrawer.Dot = fixed.P(x-leftAlignOffset+(outlineOffset)+1, y_nintendo)
 			glyphDrawer.DrawString(glyph)
 

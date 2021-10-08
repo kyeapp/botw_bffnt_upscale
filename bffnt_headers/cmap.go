@@ -181,6 +181,9 @@ func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 			binaryWrite(dataWriter, cmap.CharIndex[i])
 		}
 	}
+
+	// Nintendo pads to a 4 byte boundary (2 extra bytes max), but it seems like its not needed.
+
 	dataWriter.Flush()
 	cmapData := cmapDataBuf.Bytes()
 
@@ -229,8 +232,6 @@ func EncodeCMAPs(CMAPs []CMAP, startingOffset int) []byte {
 		res = append(res, cmapBytes...)
 		offset = currentCMAP.NextCMAPOffset
 	}
-
-	// possible TODO? pad to the next 8 byte boundary
 
 	return res
 }
