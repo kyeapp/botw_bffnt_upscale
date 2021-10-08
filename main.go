@@ -97,23 +97,7 @@ func (b *BFFNT) Upscale(scale uint8) {
 // This BFFNT file is Breath of the Wild's NormalS_00.bffnt. The goal of the
 // project is to create a bffnt encoder/decoder so I can upscale this font
 
-const (
-	// fontName = "Ancient"
-	// fontName = "Special"
-	fontName = "Caption"
-	fontFile = "./nintendo_fonts/FOT-RodinNTLG-Pro-M.otf"
-
-	// fontName = "Normal"
-	// fontFile = "./nintendo_fonts/FOT-RodinNTLG-Pro-B.otf"
-
-	// fontName = "NormalS"
-	// fontFile = "./nintendo_fonts/FOT-RodinNTLGPro-DB.BFOTF"
-
-	// fontName = "External"
-)
-
 var (
-
 // testBffntFile = "./WiiU_fonts/comicfont/Normal_00.bffnt"
 // testBffntFile = "./WiiU_fonts/kirbysans/Normal_00.bffnt"
 // testBffntFile = "./WiiU_fonts/kirbyscript/Normal_00.bffnt"
@@ -135,9 +119,9 @@ func main() {
 	// scale 2 for 2560 × 1440
 	// scale 3 for 3840 x 2160
 
-	upscaleBffnt("Caption", "FOT-RodinNTLG-Pro-M.otf", 3)
-	upscaleBffnt("Normal", "FOT-RodinNTLG-Pro-B.otf", 3)
-	upscaleBffnt("NormalS", "FOT-RodinNTLGPro-DB.BFOTF", 3)
+	upscaleBffnt("Caption", "FOT-RodinBokutoh-Pro-M.otf", 3)
+	upscaleBffnt("Normal", "FOT-RodinBokutoh-Pro-B.otf", 3)
+	upscaleBffnt("NormalS", "FOT-RodinBokutoh-Pro-DB.otf", 3)
 
 	return
 }
@@ -163,12 +147,12 @@ func upscaleBffnt(botwFontName string, fontFile string, scale int) {
 
 	// bffnt.Decode(encodedRaw)
 
-	fontFile = fmt.Sprintf("./nintendo_fonts/%s", fontName)
+	fontFile = fmt.Sprintf("./nintendo_system_ui/DSi-Wii-3DS-Wii_U/%s", fontFile)
 	generateTexture(bffnt, botwFontName, fontFile, scale)
 }
 
 // https://pkg.go.dev/golang.org/x/image/font/sfnt#Font
-func generateTexture(b BFFNT, fontName string, fontfile string, scale int) {
+func generateTexture(b BFFNT, fontName string, fontFile string, scale int) {
 	pairSlice := make([]bffnt_headers.AsciiIndexPair, 0)
 	for _, cmap := range b.CMAPs {
 		for j, _ := range cmap.CharAscii {
