@@ -64,7 +64,7 @@ func pprint(s interface{}) {
 func verifyLeftoverBytes(leftovers []byte) {
 	if len(leftovers) > 0 {
 		if Debug {
-			fmt.Printf("%d bytes left over", len(leftovers))
+			fmt.Printf("%d bytes left over\n", len(leftovers))
 		}
 
 		for _, singleByte := range leftovers {
@@ -74,5 +74,24 @@ func verifyLeftoverBytes(leftovers []byte) {
 				handleErr(err)
 			}
 		}
+	}
+}
+
+// After every CWDH and CMAP section and its data is encoded. There is padding
+// that happens to bring the total bytes to the next 4 byte boundary. This
+// includes all the bytes of CFNT, FINF, every CWDH and every CMAP that was
+// written before.
+func paddingToNext4ByteBoundary(offset int) int {
+	remainder := offset % 4
+	if remainder == 0 {
+		return 0
+	}
+
+	return 4 - remainder
+}
+
+func check4ByteBoundary(offset int) {
+	if paddingToNext4ByteBoundary(offset) != 0 {
+		panic(fmt.Sprintf("%d not at 4 byte boundary", offset))
 	}
 }

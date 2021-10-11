@@ -79,7 +79,7 @@ func (krng *KRNG) Decode(bffntRaw []byte) {
 		dataPos += 4
 
 		// fmt.Println("============================")
-		// fmt.Println("FirstChar:", string(firstChar))
+		// fmt.Println("\nFirstChar:", string(firstChar))
 		// fmt.Println("SecondChar offset:", secondCharOffset)
 
 		// The real offset must be multiplied by 2. This might be the case
@@ -101,6 +101,8 @@ func (krng *KRNG) Decode(bffntRaw []byte) {
 		for j := 0; j < int(secondCharCount); j++ {
 			secondChar := binary.BigEndian.Uint16(pairData[pairPos : pairPos+2])
 			kerningValue := int16(binary.BigEndian.Uint16(pairData[pairPos+2 : pairPos+4]))
+
+			// fmt.Printf("(%s, %d), ", string(secondChar), kerningValue)
 
 			kerningPairSlice = append(kerningPairSlice, kerningPair{secondChar, kerningValue})
 

@@ -75,11 +75,12 @@ func (cwdh *CWDH) Decode(raw []byte, cwdhOffset uint32) {
 	assertEqual(int(cwdh.EndIndex+1), len(cwdh.Glyphs))
 
 	if Debug {
-		fmt.Printf("Read section total of %d bytes\n", dataPos-headerStart)
+		dataEnd := dataStart + dataPos
+		fmt.Printf("Read section total of %d bytes\n", dataEnd-headerStart)
 		fmt.Println("Byte offsets start(inclusive) to end(exclusive)================")
 		fmt.Printf("header           %-8d to  %d\n", headerStart, headerEnd)
-		fmt.Printf("data calculated  %-8d to  %d\n", dataStart, dataPos)
-		fmt.Printf("leftover bytes   %-8d to  %d\n", dataPos, dataPos+len(leftoverData))
+		fmt.Printf("data calculated  %-8d to  %d\n", dataStart, dataEnd)
+		fmt.Printf("leftover bytes   %-8d to  %d\n", dataEnd, dataEnd+len(leftoverData))
 		fmt.Println()
 	}
 }
@@ -161,6 +162,15 @@ func (cwdh *CWDH) Encode(startOffset uint32, isLastCWDH bool) []byte {
 	_, _ = w.Write(glyphData)
 	w.Flush()
 
+	totalBytesSoFar := int(startOffset) - 8 + len(buf.Bytes())
+	paddingAmount := paddingToNext4ByteBoundary(totalBytesSoFar)
+	for i := 0; i < paddingAmount; i++ {
+		binaryWrite(w, byte('0'))
+	}
+	w.Flush()
+
+	totalBytesWithPadding := int(startOffset) + len(buf.Bytes())
+	check4ByteBoundary(totalBytesWithPadding)
 	return buf.Bytes()
 }
 

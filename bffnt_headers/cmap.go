@@ -133,7 +133,7 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 	assertEqual(len(cmap.CharAscii), len(cmap.CharIndex))
 
 	if Debug {
-		dataPosEnd := headerEnd + dataPos
+		dataPosEnd := headerStart + headerEnd + dataPos
 		fmt.Printf("Read section total of %d bytes\n", dataPosEnd-headerStart)
 		fmt.Println("Byte offsets start(inclusive) to end(exclusive)================")
 		fmt.Printf("header           %-8d to  %d\n", headerStart, headerEnd)
@@ -182,15 +182,21 @@ func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 		}
 	}
 
-	// Nintendo pads to a 4 byte boundary (2 extra bytes max), but it seems like its not needed.
-
 	dataWriter.Flush()
 	cmapData := cmapDataBuf.Bytes()
 
+	// calculate and create padding
+	totalBytesSoFar := int(startOffset) - 8 + len(cmapData)
+	paddingAmount := paddingToNext4ByteBoundary(totalBytesSoFar)
+	padding := make([]byte, 0)
+	for i := 0; i < paddingAmount; i++ {
+		padding = append(padding, 0)
+	}
+
 	// Calculate and edit the header information
-	cmap.SectionSize = uint32(CMAP_HEADER_SIZE + len(cmapData))
+	cmap.SectionSize = uint32(CMAP_HEADER_SIZE + len(cmapData) + len(padding))
 	// Assume the startOffset already had +8 added to it to skip the magic header
-	cmap.NextCMAPOffset = uint32(int(startOffset) + CMAP_HEADER_SIZE + len(cmapData))
+	cmap.NextCMAPOffset = startOffset + cmap.SectionSize
 
 	if isLastCMAP {
 		// terminate cmap list by setting offset to 0
@@ -208,9 +214,12 @@ func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 	binaryWrite(w, cmap.MappingMethod)
 	binaryWrite(w, cmap.Reserved)
 	binaryWrite(w, cmap.NextCMAPOffset)
+	binaryWrite(w, padding)
 	_, _ = w.Write(cmapData)
-
 	w.Flush()
+
+	totalBytesWithPadding := int(startOffset) + len(buf.Bytes())
+	check4ByteBoundary(totalBytesWithPadding)
 	return buf.Bytes()
 }
 
@@ -231,6 +240,7 @@ func EncodeCMAPs(CMAPs []CMAP, startingOffset int) []byte {
 
 		res = append(res, cmapBytes...)
 		offset = currentCMAP.NextCMAPOffset
+
 	}
 
 	return res
