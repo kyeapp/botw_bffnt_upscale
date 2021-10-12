@@ -127,13 +127,14 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 	}
 	cmap.CharAscii = asciiSlice
 	cmap.CharIndex = indexSlice
+	assertEqual(len(cmap.CharAscii), len(cmap.CharIndex))
 
 	leftoverData := data[dataPos:]
 	verifyLeftoverBytes(leftoverData)
-	assertEqual(len(cmap.CharAscii), len(cmap.CharIndex))
 
 	if Debug {
-		dataPosEnd := headerStart + headerEnd + dataPos
+		dataPosEnd := headerEnd + dataPos
+		fmt.Println(dataPosEnd, headerEnd)
 		fmt.Printf("Read section total of %d bytes\n", dataPosEnd-headerStart)
 		fmt.Println("Byte offsets start(inclusive) to end(exclusive)================")
 		fmt.Printf("header           %-8d to  %d\n", headerStart, headerEnd)
@@ -181,20 +182,12 @@ func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 			binaryWrite(dataWriter, cmap.CharIndex[i])
 		}
 	}
-
 	dataWriter.Flush()
+	padToNext4ByteBoundary(dataWriter, cmapDataBuf, int(startOffset))
+
 	cmapData := cmapDataBuf.Bytes()
-
-	// calculate and create padding
-	totalBytesSoFar := int(startOffset) - 8 + len(cmapData)
-	paddingAmount := paddingToNext4ByteBoundary(totalBytesSoFar)
-	padding := make([]byte, 0)
-	for i := 0; i < paddingAmount; i++ {
-		padding = append(padding, 0)
-	}
-
 	// Calculate and edit the header information
-	cmap.SectionSize = uint32(CMAP_HEADER_SIZE + len(cmapData) + len(padding))
+	cmap.SectionSize = uint32(CMAP_HEADER_SIZE + len(cmapData))
 	// Assume the startOffset already had +8 added to it to skip the magic header
 	cmap.NextCMAPOffset = startOffset + cmap.SectionSize
 
@@ -214,7 +207,6 @@ func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 	binaryWrite(w, cmap.MappingMethod)
 	binaryWrite(w, cmap.Reserved)
 	binaryWrite(w, cmap.NextCMAPOffset)
-	binaryWrite(w, padding)
 	_, _ = w.Write(cmapData)
 	w.Flush()
 

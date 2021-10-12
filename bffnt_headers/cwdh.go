@@ -136,8 +136,10 @@ func (cwdh *CWDH) Encode(startOffset uint32, isLastCWDH bool) []byte {
 		binaryWrite(dataWriter, glyph.CharWidth)
 	}
 	dataWriter.Flush()
-	glyphData := dataBuf.Bytes()
 
+	padToNext4ByteBoundary(dataWriter, dataBuf, int(startOffset))
+
+	glyphData := dataBuf.Bytes()
 	// Calculate and edit the header information
 	cwdh.SectionSize = uint32(CWDH_HEADER_SIZE + len(glyphData))
 	cwdh.StartIndex = uint16(0)
@@ -162,15 +164,6 @@ func (cwdh *CWDH) Encode(startOffset uint32, isLastCWDH bool) []byte {
 	_, _ = w.Write(glyphData)
 	w.Flush()
 
-	totalBytesSoFar := int(startOffset) - 8 + len(buf.Bytes())
-	paddingAmount := paddingToNext4ByteBoundary(totalBytesSoFar)
-	for i := 0; i < paddingAmount; i++ {
-		binaryWrite(w, byte('0'))
-	}
-	w.Flush()
-
-	totalBytesWithPadding := int(startOffset) + len(buf.Bytes())
-	check4ByteBoundary(totalBytesWithPadding)
 	return buf.Bytes()
 }
 

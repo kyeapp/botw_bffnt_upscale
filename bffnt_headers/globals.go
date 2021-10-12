@@ -2,6 +2,7 @@ package bffnt_headers
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -93,5 +94,21 @@ func paddingToNext4ByteBoundary(offset int) int {
 func check4ByteBoundary(offset int) {
 	if paddingToNext4ByteBoundary(offset) != 0 {
 		panic(fmt.Sprintf("%d not at 4 byte boundary", offset))
+	}
+}
+
+func padToNext4ByteBoundary(w *bufio.Writer, buf bytes.Buffer, startOffset int) {
+	w.Flush()
+	totalBytesSoFar := startOffset - 8 + len(buf.Bytes())
+
+	paddingAmount := paddingToNext4ByteBoundary(totalBytesSoFar)
+	for i := 0; i < paddingAmount; i++ {
+		binaryWrite(w, byte(0))
+	}
+	w.Flush()
+
+	totalBytesWithPadding := startOffset + len(buf.Bytes())
+	if paddingToNext4ByteBoundary(startOffset) != 0 {
+		panic(fmt.Sprintf("%d not at 4 byte boundary", totalBytesWithPadding))
 	}
 }

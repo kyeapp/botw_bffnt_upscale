@@ -45,8 +45,6 @@ func (b *BFFNT) Decode(bffntRaw []byte) {
 }
 
 func (b *BFFNT) Encode() []byte {
-	res := make([]byte, 0)
-
 	tglpRaw := b.TGLP.Encode()
 
 	cwdhStartOffset := bffnt_headers.CFNT_HEADER_SIZE + bffnt_headers.FINF_HEADER_SIZE + len(tglpRaw)
@@ -55,17 +53,18 @@ func (b *BFFNT) Encode() []byte {
 	cmapStartOffset := cwdhStartOffset + len(cwdhsRaw)
 	cmapsRaw := bffnt_headers.EncodeCMAPs(b.CMAPs, cmapStartOffset)
 
-	krngRaw := b.KRNG.Encode()
-
 	tglpOffset := bffnt_headers.CFNT_HEADER_SIZE + bffnt_headers.FINF_HEADER_SIZE
 	cwdhOffset := tglpOffset + len(tglpRaw)
 	cmapOffset := cwdhOffset + len(cwdhsRaw)
 	finfRaw := b.FINF.Encode(tglpOffset+8, cwdhOffset+8, cmapOffset+8)
 
+	krngRaw := b.KRNG.Encode(uint32(bffnt_headers.CFNT_HEADER_SIZE + len(finfRaw) + len(tglpRaw) + len(cwdhsRaw) + len(cmapsRaw)))
+
 	// TODO: calculate an appriopriate blockreadnum based on sheetsize?
 	fileSize := uint32(bffnt_headers.CFNT_HEADER_SIZE + len(finfRaw) + len(tglpRaw) + len(cwdhsRaw) + len(cmapsRaw) + len(krngRaw))
 	cfntRaw := b.CFNT.Encode(fileSize)
 
+	res := make([]byte, 0)
 	res = append(res, cfntRaw...)
 	res = append(res, finfRaw...)
 	res = append(res, tglpRaw...)
@@ -92,7 +91,6 @@ func (b *BFFNT) Upscale(scale uint8) {
 	}
 
 	b.KRNG.Upscale(scale)
-
 }
 
 func handleErr(err error) {
@@ -133,12 +131,14 @@ func upscaleBffnt(botwFontName string, fontFile string, scale int) {
 	bffnt.Upscale(uint8(scale))
 
 	encodedRaw := bffnt.Encode()
+	fmt.Println("encoded bytes:", len(encodedRaw))
 
 	outputBffntFile := fmt.Sprintf("%s_00_%dx_template.bffnt", botwFontName, scale)
 	err = os.WriteFile(outputBffntFile, encodedRaw, 0644)
 	handleErr(err)
 
 	bffnt.Decode(encodedRaw)
+	// panic("need to know krng decode is working")
 
 	generateTexture(bffnt, botwFontName, fontFile, scale)
 }
