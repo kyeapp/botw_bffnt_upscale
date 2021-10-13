@@ -14,14 +14,14 @@ var (
 
 const (
 	// number of bytes for each header size
-	CFNT_HEADER_SIZE = 20
+	FFNT_HEADER_SIZE = 20
 	FINF_HEADER_SIZE = 32
 	TGLP_HEADER_SIZE = 32
 	CWDH_HEADER_SIZE = 16
 	CMAP_HEADER_SIZE = 20
 	KRNG_HEADER_SIZE = 8
 
-	CFNT_MAGIC_HEADER = "FFNT"
+	FFNT_MAGIC_HEADER = "FFNT"
 	FINF_MAGIC_HEADER = "FINF"
 	TGLP_MAGIC_HEADER = "TGLP"
 	CWDH_MAGIC_HEADER = "CWDH"
@@ -80,7 +80,7 @@ func verifyLeftoverBytes(leftovers []byte) {
 
 // After every CWDH and CMAP section and its data is encoded. There is padding
 // that happens to bring the total bytes to the next 4 byte boundary. This
-// includes all the bytes of CFNT, FINF, every CWDH and every CMAP that was
+// includes all the bytes of FFNT, FINF, every CWDH and every CMAP that was
 // written before.
 func paddingToNext4ByteBoundary(offset int) int {
 	remainder := offset % 4

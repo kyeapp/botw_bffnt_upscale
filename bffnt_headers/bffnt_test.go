@@ -1,64 +1,90 @@
 package bffnt_headers
 
 import (
+	"crypto/md5"
+	"encoding/hex"
+	"io"
+	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	BOTW_NormalS test_bffnt
-)
+func TestBFFNT(t *testing.T) {
+	bffntRaw, err := ioutil.ReadFile("../WiiU_fonts/botw/NormalS/NormalS_00.bffnt")
+	handleErr(err)
 
-func defineTestBFFNTs() {
-	// Breath of the Wild v1.6.0
-	var b BFFNT
-	BOTW_NormalS = b.Load("/home/kyeap/workspace/bffnt/WiiU_fonts/botw/NormalS/NormalS_00.bffnt")
+	var ffnt FFNT
+	ffnt.Decode(bffntRaw)
+	encodedFFNT := ffnt.Encode(ffnt.TotalFileSize)
 
-	// BOTW_NormalS = test_bffnt{
-	// 	cfnt:       []byte{70, 70, 78, 84, 254, 255, 0, 20, 3, 0, 0, 0, 0, 8, 58, 28, 0, 9, 0, 0},
-	// 	finf:       []byte{70, 73, 78, 70, 0, 0, 0, 32, 2, 30, 24, 23, 0, 30, 0, 0, 0, 24, 24, 1, 0, 0, 0, 60, 0, 8, 32, 8, 0, 8, 39, 64},
-	// 	tglpHeader: []byte{84, 71, 76, 80, 0, 8, 31, 204, 24, 30, 1, 21, 0, 8, 0, 0, 0, 23, 0, 8, 0, 20, 0, 33, 2, 0, 4, 0, 0, 0, 32, 0},
-	// }
-}
+	expectedFFNT := bffntRaw[:FFNT_HEADER_SIZE]
+	assert.Equal(t, expectedFFNT, encodedFFNT, "FFNT encoding did not produce the correct results")
 
-// decode the test cases and encode them again. Compares the bytes that get
-// encoded and them decoded. They should be the same.
+	var finf FINF
+	finf.Decode(bffntRaw)
+	encodedFINF := finf.Encode(int(finf.TGLPOffset), int(finf.CWDHOffset), int(finf.CMAPOffset))
 
-func TestCFNT(t *testing.T) {
-	expected := BOTW_NormalS.cfnt
-	var testCFNT CFNT
-	testCFNT.decode(expected)
-	actual := testCFNT.encode()
+	expectedFINF := bffntRaw[FFNT_HEADER_SIZE : FFNT_HEADER_SIZE+FINF_HEADER_SIZE]
+	assert.Equal(t, expectedFINF, encodedFINF, "FINF encoding did not produce the correct results")
 
-	assert.Equal(t, expected, actual)
-}
+	var tglp TGLP
+	tglpHeaderStart := FFNT_HEADER_SIZE + FINF_HEADER_SIZE
+	tglpHeaderEnd := tglpHeaderStart + TGLP_HEADER_SIZE
+	tglp.DecodeHeader(bffntRaw[tglpHeaderStart:tglpHeaderEnd])
+	encodedTGLPHeader := tglp.EncodeHeader()
 
-func TestFINF(t *testing.T) {
-	expected := BOTW_NormalS.finf
+	expectedTGLPHeader := bffntRaw[tglpHeaderStart:tglpHeaderEnd]
+	assert.Equal(t, expectedTGLPHeader, encodedTGLPHeader, "TGLP Header encoding did not produce the correct results")
 
-	var testFINF FINF_BFFNT
-	testFINF.decode(expected)
-	actual := testFINF.encode()
+	// verify tglp data is good
 
-	assert.Equal(t, expected, actual)
-}
+	// b.CWDHs = bffnt_headers.DecodeCWDHs(bffntRaw, b.FINF.CWDHOffset)
+	// b.CMAPs = bffnt_headers.DecodeCMAPs(bffntRaw, b.FINF.CMAPOffset)
+	// b.KRNG.Decode(bffntRaw)
 
-func TestTGLP(t *testing.T) {
-	expected := BOTW_NormalS.tglpHeader
+	// ffntRaw :=
+	// 	finfRaw
+	// tglpRaw
 
-	var testTGLP TGLP_BFFNT
-	testTGLP.decodeHeader(expected)
-	actual := testTGLP.encodeHeader()
-
-	assert.Equal(t, expected, actual)
-
-	//test decodeSheets
+	// cwdhsRaw
+	// cmapsRaw
+	// krngRaw
 }
 
 func TestMain(m *testing.M) {
-	defineTestBFFNTs()
 	code := m.Run()
 	os.Exit(code)
+}
+
+func hash_file_md5(filePath string) (string, error) {
+	//Initialize variable returnMD5String now in case an error has to be returned
+	var returnMD5String string
+
+	//Open the passed argument and check for any error
+	file, err := os.Open(filePath)
+	if err != nil {
+		return returnMD5String, err
+	}
+
+	//Tell the program to call the following function when the current function returns
+	defer file.Close()
+
+	//Open a new hash interface to write to
+	hash := md5.New()
+
+	//Copy the file in the hash interface and check for any error
+	if _, err := io.Copy(hash, file); err != nil {
+		return returnMD5String, err
+	}
+
+	//Get the 16 bytes hash
+	hashInBytes := hash.Sum(nil)[:16]
+
+	//Convert the bytes to a string
+	returnMD5String = hex.EncodeToString(hashInBytes)
+
+	return returnMD5String, nil
+
 }

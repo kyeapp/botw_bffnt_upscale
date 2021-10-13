@@ -75,7 +75,7 @@ func (tglp *TGLP) Upscale(scale uint8) {
 // The input for TGLP decode is the entire BFFNT file in the form of a byte
 // array ([]byte).
 func (tglp *TGLP) Decode(raw []byte) {
-	headerStart := CFNT_HEADER_SIZE + FINF_HEADER_SIZE
+	headerStart := FFNT_HEADER_SIZE + FINF_HEADER_SIZE
 	headerEnd := headerStart + TGLP_HEADER_SIZE
 	headerRaw := raw[headerStart:headerEnd]
 	assertEqual(TGLP_HEADER_SIZE, len(headerRaw))
@@ -171,7 +171,7 @@ func (tglp *TGLP) DecodeSheets() {
 func (tglp *TGLP) Encode() []byte {
 	var res []byte
 
-	tglp.SectionSize = tglp.SheetDataOffset - CFNT_HEADER_SIZE - FINF_HEADER_SIZE + tglp.SheetSize*uint32(tglp.NumOfSheets)
+	tglp.SectionSize = tglp.SheetDataOffset - FFNT_HEADER_SIZE - FINF_HEADER_SIZE + tglp.SheetSize*uint32(tglp.NumOfSheets)
 	// fmt.Println(tglp.SectionSize)
 
 	header := tglp.EncodeHeader()
@@ -183,7 +183,7 @@ func (tglp *TGLP) Encode() []byte {
 	res = append(res, padding...)
 	res = append(res, allSheetData...)
 
-	assertEqual(int(tglp.SheetDataOffset), CFNT_HEADER_SIZE+FINF_HEADER_SIZE+TGLP_HEADER_SIZE+len(padding))
+	assertEqual(int(tglp.SheetDataOffset), FFNT_HEADER_SIZE+FINF_HEADER_SIZE+TGLP_HEADER_SIZE+len(padding))
 	assertEqual(int(tglp.SectionSize), len(res))
 	return res
 }
@@ -216,11 +216,11 @@ func (tglp *TGLP) computePredataPadding() int {
 	// Not to scale representation of a portion of the bffnt file in raw bytes
 	// for visual purposes
 	//                      |-------------TGLP section size---------------------------|
-	// CFNT   FINF          TGLP header    padding              tglp SheetDataOffset
+	// FFNT   FINF          TGLP header    padding              tglp SheetDataOffset
 	// |      |             |              |                    |
 	// aaaaaa bbbbbbbbbbbbb cccccccccccccc 00000000000000000000 ddddddddddddddddddddddd
 
-	return int(tglp.SheetDataOffset) - CFNT_HEADER_SIZE - FINF_HEADER_SIZE - TGLP_HEADER_SIZE
+	return int(tglp.SheetDataOffset) - FFNT_HEADER_SIZE - FINF_HEADER_SIZE - TGLP_HEADER_SIZE
 }
 
 // So since switch toolbox already has the ability to swizzle and replace

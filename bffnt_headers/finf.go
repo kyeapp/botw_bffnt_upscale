@@ -27,7 +27,7 @@ type FINF struct { //  Offset  Size  Description
 
 // Version 4 (BFFNT)
 func (finf *FINF) Decode(raw []byte) {
-	headerStart := CFNT_HEADER_SIZE
+	headerStart := FFNT_HEADER_SIZE
 	headerEnd := headerStart + FINF_HEADER_SIZE
 	headerRaw := raw[headerStart:headerEnd]
 	assertEqual(FINF_HEADER_SIZE, len(headerRaw))

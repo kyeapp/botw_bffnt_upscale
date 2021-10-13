@@ -24,7 +24,7 @@ import (
 // https://www.dafont.com/botw-hylian.font
 
 type BFFNT struct {
-	CFNT  bffnt_headers.CFNT
+	FFNT  bffnt_headers.FFNT
 	FINF  bffnt_headers.FINF
 	TGLP  bffnt_headers.TGLP
 	CWDHs []bffnt_headers.CWDH
@@ -36,7 +36,7 @@ var bffntRaw []byte
 var err error
 
 func (b *BFFNT) Decode(bffntRaw []byte) {
-	b.CFNT.Decode(bffntRaw)
+	b.FFNT.Decode(bffntRaw)
 	b.FINF.Decode(bffntRaw)
 	b.TGLP.Decode(bffntRaw)
 	b.CWDHs = bffnt_headers.DecodeCWDHs(bffntRaw, b.FINF.CWDHOffset)
@@ -47,25 +47,25 @@ func (b *BFFNT) Decode(bffntRaw []byte) {
 func (b *BFFNT) Encode() []byte {
 	tglpRaw := b.TGLP.Encode()
 
-	cwdhStartOffset := bffnt_headers.CFNT_HEADER_SIZE + bffnt_headers.FINF_HEADER_SIZE + len(tglpRaw)
+	cwdhStartOffset := bffnt_headers.FFNT_HEADER_SIZE + bffnt_headers.FINF_HEADER_SIZE + len(tglpRaw)
 	cwdhsRaw := bffnt_headers.EncodeCWDHs(b.CWDHs, cwdhStartOffset)
 
 	cmapStartOffset := cwdhStartOffset + len(cwdhsRaw)
 	cmapsRaw := bffnt_headers.EncodeCMAPs(b.CMAPs, cmapStartOffset)
 
-	tglpOffset := bffnt_headers.CFNT_HEADER_SIZE + bffnt_headers.FINF_HEADER_SIZE
+	tglpOffset := bffnt_headers.FFNT_HEADER_SIZE + bffnt_headers.FINF_HEADER_SIZE
 	cwdhOffset := tglpOffset + len(tglpRaw)
 	cmapOffset := cwdhOffset + len(cwdhsRaw)
 	finfRaw := b.FINF.Encode(tglpOffset+8, cwdhOffset+8, cmapOffset+8)
 
-	krngRaw := b.KRNG.Encode(uint32(bffnt_headers.CFNT_HEADER_SIZE + len(finfRaw) + len(tglpRaw) + len(cwdhsRaw) + len(cmapsRaw)))
+	krngRaw := b.KRNG.Encode(uint32(bffnt_headers.FFNT_HEADER_SIZE + len(finfRaw) + len(tglpRaw) + len(cwdhsRaw) + len(cmapsRaw)))
 
 	// TODO: calculate an appriopriate blockreadnum based on sheetsize?
-	fileSize := uint32(bffnt_headers.CFNT_HEADER_SIZE + len(finfRaw) + len(tglpRaw) + len(cwdhsRaw) + len(cmapsRaw) + len(krngRaw))
-	cfntRaw := b.CFNT.Encode(fileSize)
+	fileSize := uint32(bffnt_headers.FFNT_HEADER_SIZE + len(finfRaw) + len(tglpRaw) + len(cwdhsRaw) + len(cmapsRaw) + len(krngRaw))
+	ffntRaw := b.FFNT.Encode(fileSize)
 
 	res := make([]byte, 0)
-	res = append(res, cfntRaw...)
+	res = append(res, ffntRaw...)
 	res = append(res, finfRaw...)
 	res = append(res, tglpRaw...)
 	res = append(res, cwdhsRaw...)
@@ -209,7 +209,7 @@ func generateTexture(b BFFNT, fontName string, fontFile string, scale int) {
 	}
 
 	// play in normal mode
-	fmt.Println(face.Kern(rune('L'), rune('T')))
+	// fmt.Println(face.Kern(rune('L'), rune('T')))
 
 	var charIndex, x, y int
 	for rowIndex := 0; rowIndex < 9999; rowIndex++ {
@@ -271,7 +271,6 @@ writePng:
 	handleErr(err)
 	err = png.Encode(textureFile, dst)
 	handleErr(err)
-
 }
 
 // Manual adjustments for each font to closely resemble the original
