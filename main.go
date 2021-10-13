@@ -45,20 +45,19 @@ func (b *BFFNT) Decode(bffntRaw []byte) {
 }
 
 func (b *BFFNT) Encode() []byte {
+	tglpOffset := bffnt_headers.FFNT_HEADER_SIZE + bffnt_headers.FINF_HEADER_SIZE + 8
 	tglpRaw := b.TGLP.Encode()
 
-	cwdhStartOffset := bffnt_headers.FFNT_HEADER_SIZE + bffnt_headers.FINF_HEADER_SIZE + len(tglpRaw)
-	cwdhsRaw := bffnt_headers.EncodeCWDHs(b.CWDHs, cwdhStartOffset)
-
-	cmapStartOffset := cwdhStartOffset + len(cwdhsRaw)
-	cmapsRaw := bffnt_headers.EncodeCMAPs(b.CMAPs, cmapStartOffset)
-
-	tglpOffset := bffnt_headers.FFNT_HEADER_SIZE + bffnt_headers.FINF_HEADER_SIZE
 	cwdhOffset := tglpOffset + len(tglpRaw)
-	cmapOffset := cwdhOffset + len(cwdhsRaw)
-	finfRaw := b.FINF.Encode(tglpOffset+8, cwdhOffset+8, cmapOffset+8)
+	cwdhsRaw := bffnt_headers.EncodeCWDHs(b.CWDHs, cwdhOffset)
 
-	krngRaw := b.KRNG.Encode(uint32(bffnt_headers.FFNT_HEADER_SIZE + len(finfRaw) + len(tglpRaw) + len(cwdhsRaw) + len(cmapsRaw)))
+	cmapOffset := cwdhOffset + len(cwdhsRaw)
+	cmapsRaw := bffnt_headers.EncodeCMAPs(b.CMAPs, cmapOffset)
+
+	finfRaw := b.FINF.Encode(tglpOffset, cwdhOffset, cmapOffset)
+
+	krngOffset := cmapOffset + len(cmapsRaw)
+	krngRaw := b.KRNG.Encode(uint32(krngOffset))
 
 	// TODO: calculate an appriopriate blockreadnum based on sheetsize?
 	fileSize := uint32(bffnt_headers.FFNT_HEADER_SIZE + len(finfRaw) + len(tglpRaw) + len(cwdhsRaw) + len(cmapsRaw) + len(krngRaw))

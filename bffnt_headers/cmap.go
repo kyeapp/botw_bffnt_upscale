@@ -160,7 +160,7 @@ func DecodeCMAPs(allRaw []byte, startingOffset uint32) []CMAP {
 }
 
 // Encodes a single cmap.
-// The start offset passed in should be the total number of bytes written so far
+// The start offset is either FINF.CMAPOffset or the last cmap's NextCMAPOffset
 func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 	var cmapDataBuf bytes.Buffer
 	dataWriter := bufio.NewWriter(&cmapDataBuf)
@@ -215,13 +215,10 @@ func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 	return buf.Bytes()
 }
 
-func EncodeCMAPs(CMAPs []CMAP, startingOffset int) []byte {
+func EncodeCMAPs(CMAPs []CMAP, finfCMAPOffset int) []byte {
 	res := make([]byte, 0)
 
-	// Offset to write should have 8 bytes added to it to skip the magic header
-	// since cmap is a recursive structure, all cmap's NextCMAPOffset will be
-	// correctly offset by 8
-	offset := uint32(startingOffset) + 8
+	offset := uint32(finfCMAPOffset)
 	for i, currentCMAP := range CMAPs {
 		isLast := false
 		if i == len(CMAPs)-1 {
@@ -236,4 +233,15 @@ func EncodeCMAPs(CMAPs []CMAP, startingOffset int) []byte {
 	}
 
 	return res
+}
+
+// takes a cmap list and adds the section size together.
+func totalCmapSectionSize(cmapList []CMAP) (totalSectionSize int) {
+	totalSectionSize = 0
+
+	for _, currentCMAP := range cmapList {
+		totalSectionSize += int(currentCMAP.SectionSize)
+	}
+
+	return totalSectionSize
 }

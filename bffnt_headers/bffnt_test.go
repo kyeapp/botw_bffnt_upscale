@@ -6,26 +6,34 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
+const botwNormalSHash = "f993a5822f3ce05e51e0440b46bd1345"
+
 func TestBFFNT(t *testing.T) {
-	bffntRaw, err := ioutil.ReadFile("../WiiU_fonts/botw/NormalS/NormalS_00.bffnt")
+	bffntFile := "../WiiU_fonts/botw/NormalS/NormalS_00.bffnt"
+	bffntRaw, err := ioutil.ReadFile(bffntFile)
 	handleErr(err)
+
+	//TODO verify the file with an MD5 hash
+	hash, err := hash_file_md5(bffntFile)
+	handleErr(err)
+	expectedHash := botwNormalSHash
+	assert.Equal(t, expectedHash, hash, "md5 hash of bffnt file mismatch. test is invalid.")
 
 	var ffnt FFNT
 	ffnt.Decode(bffntRaw)
 	encodedFFNT := ffnt.Encode(ffnt.TotalFileSize)
-
 	expectedFFNT := bffntRaw[:FFNT_HEADER_SIZE]
 	assert.Equal(t, expectedFFNT, encodedFFNT, "FFNT encoding did not produce the correct results")
 
 	var finf FINF
 	finf.Decode(bffntRaw)
 	encodedFINF := finf.Encode(int(finf.TGLPOffset), int(finf.CWDHOffset), int(finf.CMAPOffset))
-
 	expectedFINF := bffntRaw[FFNT_HEADER_SIZE : FFNT_HEADER_SIZE+FINF_HEADER_SIZE]
 	assert.Equal(t, expectedFINF, encodedFINF, "FINF encoding did not produce the correct results")
 
@@ -34,23 +42,35 @@ func TestBFFNT(t *testing.T) {
 	tglpHeaderEnd := tglpHeaderStart + TGLP_HEADER_SIZE
 	tglp.DecodeHeader(bffntRaw[tglpHeaderStart:tglpHeaderEnd])
 	encodedTGLPHeader := tglp.EncodeHeader()
-
 	expectedTGLPHeader := bffntRaw[tglpHeaderStart:tglpHeaderEnd]
 	assert.Equal(t, expectedTGLPHeader, encodedTGLPHeader, "TGLP Header encoding did not produce the correct results")
+	// TODO: verify tglp data is good
 
-	// verify tglp data is good
+	var cwdhList []CWDH
+	cwdhList = DecodeCWDHs(bffntRaw, finf.CWDHOffset)
+	encodedCWDH := EncodeCWDHs(cwdhList, int(finf.CWDHOffset))
+	cwdhStart := finf.CWDHOffset - 8
+	cwdhEnd := int(cwdhStart) + totalCwdhSectionSize(cwdhList)
+	expectedCWDH := bffntRaw[cwdhStart:cwdhEnd]
+	assert.Equal(t, expectedCWDH, encodedCWDH, "CWDH encoding did not produce the correct results")
 
-	// b.CWDHs = bffnt_headers.DecodeCWDHs(bffntRaw, b.FINF.CWDHOffset)
-	// b.CMAPs = bffnt_headers.DecodeCMAPs(bffntRaw, b.FINF.CMAPOffset)
-	// b.KRNG.Decode(bffntRaw)
+	var cmapList []CMAP
+	cmapList = DecodeCMAPs(bffntRaw, finf.CMAPOffset)
+	encodedCMAP := EncodeCMAPs(cmapList, int(finf.CMAPOffset))
+	cmapStart := finf.CMAPOffset - 8
+	cmapEnd := int(cmapStart) + totalCmapSectionSize(cmapList)
+	expectedCMAP := bffntRaw[cmapStart:cmapEnd]
+	assert.Equal(t, expectedCMAP, encodedCMAP, "CMAP encoding did not produce the correct results")
 
-	// ffntRaw :=
-	// 	finfRaw
-	// tglpRaw
+	var krng KRNG
+	krng.Decode(bffntRaw)
+	krngStart := uint32(strings.Index(string(bffntRaw), KRNG_MAGIC_HEADER))
+	encodedKRNG := krng.Encode(krngStart)
+	krngEnd := krngStart + krng.SectionSize
+	expectedKRNG := bffntRaw[krngStart:krngEnd]
+	assert.Equal(t, expectedKRNG, encodedKRNG, "KRNG encoding did not produce the correct results")
 
-	// cwdhsRaw
-	// cmapsRaw
-	// krngRaw
+	// verify all bytes accounted for
 }
 
 func TestMain(m *testing.M) {

@@ -85,14 +85,6 @@ func (cwdh *CWDH) Decode(raw []byte, cwdhOffset uint32) {
 	}
 }
 
-// After every CWDH and CMAP section and its data is encoded. There is padding
-// that happens to bring the total bytes to the next 8 byte boundary. This
-// includes all the bytes of CFNT, FINF, every CWDH and every CMAP that was
-// written before.
-func paddingToNext8ByteBoundary(dataLen int) int {
-	return 8 - dataLen%8
-}
-
 func (cwdh *CWDH) DecodeHeader(raw []byte) {
 	assertEqual(CWDH_HEADER_SIZE, len(raw))
 
@@ -123,7 +115,7 @@ func DecodeCWDHs(allRaw []byte, startingOffset uint32) []CWDH {
 }
 
 // Encodes a single cwdh.
-// The start offset passed in should be the total number of bytes written so far
+// The start offset passed is either the starting finf.cwdhOffset or the last cwdh's NextCWDHOffset
 func (cwdh *CWDH) Encode(startOffset uint32, isLastCWDH bool) []byte {
 	var dataBuf bytes.Buffer
 	dataWriter := bufio.NewWriter(&dataBuf)
@@ -167,13 +159,10 @@ func (cwdh *CWDH) Encode(startOffset uint32, isLastCWDH bool) []byte {
 	return buf.Bytes()
 }
 
-func EncodeCWDHs(CWDHs []CWDH, startingOffset int) []byte {
+func EncodeCWDHs(CWDHs []CWDH, finfCWDHOffset int) []byte {
 	res := make([]byte, 0)
 
-	// Offset to write should have 8 bytes added to it to skip the magic header
-	// since cwdh is a recursive structure all cwdh maps encoded will be
-	// correctly offset by 8
-	offset := uint32(startingOffset) + 8
+	offset := uint32(finfCWDHOffset)
 	for i, currentCWDH := range CWDHs {
 		isLast := false
 		if i == len(CWDHs)-1 {
@@ -186,7 +175,16 @@ func EncodeCWDHs(CWDHs []CWDH, startingOffset int) []byte {
 		offset = currentCWDH.NextCWDHOffset
 	}
 
-	// possible TODO? pad to the next 8 byte boundary
-
 	return res
+}
+
+// takes a cwdh list and adds the section size together.
+func totalCwdhSectionSize(cwdhList []CWDH) (totalSectionSize int) {
+	totalSectionSize = 0
+
+	for _, currentCWDH := range cwdhList {
+		totalSectionSize += int(currentCWDH.SectionSize)
+	}
+
+	return totalSectionSize
 }
