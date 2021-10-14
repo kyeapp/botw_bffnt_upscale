@@ -19,7 +19,7 @@ func TestBFFNT(t *testing.T) {
 	testCase(t, "../WiiU_fonts/botw/Caption/Caption_00.bffnt", "efc0070d11289b18f28525a755e75acb")
 	testCase(t, "../WiiU_fonts/botw/Normal/Normal_00.bffnt", "8d7f1ec5872da263a95a5937ccd8a372")
 	testCase(t, "../WiiU_fonts/botw/NormalS/NormalS_00.bffnt", "f993a5822f3ce05e51e0440b46bd1345")
-	testCase(t, "../WiiU_fonts/botw/NormalS/NormalS_00.bffnt", "f993a5822f3ce05e51e0440b46bd1345")
+	testCase(t, "../WiiU_fonts/botw/External/External_00.bffnt", "1ccd353cceda991d51c156fbb8b8a891")
 
 	testCase(t, "../WiiU_fonts/comicfont/Normal_00.bffnt", "f67eaccca824952de8cd26bb05db530b")
 	testCase(t, "../WiiU_fonts/kirbysans/Normal_00.bffnt", "76c3b7edaed85fec14e0a195fc7dbdaa")
@@ -57,7 +57,11 @@ func testCase(t *testing.T, bffntFile string, expectedFileHash string) {
 	encodedTGLPHeader := tglp.EncodeHeader()
 	expectedTGLPHeader := bffntRaw[tglpHeaderStart:tglpHeaderEnd]
 	assert.Equal(t, expectedTGLPHeader, encodedTGLPHeader, "TGLP Header encoding did not produce the correct results")
-	// encodedTGLP := tglp.Encode()
+	encodedTGLP := tglp.Encode()
+	// check data length is correct at least
+	tglpDataEnd := tglpHeaderStart + int(tglp.SectionSize)
+	expectedTGLP := bffntRaw[tglpHeaderStart:tglpDataEnd]
+	assert.Equal(t, len(expectedTGLP), len(encodedTGLP), "TGLP encoding did not produce the correct amount of bytes")
 
 	var cwdhList []CWDH
 	cwdhList = DecodeCWDHs(bffntRaw, finf.CWDHOffset)

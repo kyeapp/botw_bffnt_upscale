@@ -58,6 +58,9 @@ func (tglp *TGLP) Upscale(scale uint8) {
 	tglp.SheetWidth *= uint16(scale)
 	tglp.SheetHeight *= uint16(tglp.NumOfSheets) * uint16(scale)
 	tglp.SheetSize = uint32(tglp.SheetWidth) * uint32(tglp.SheetHeight)
+	if tglp.SheetImageFormat == 12 {
+		tglp.SheetSize /= 2
+	}
 	tglp.CellWidth *= scale
 	tglp.CellHeight *= scale
 	tglp.MaxCharWidth *= scale
@@ -171,17 +174,18 @@ func (tglp *TGLP) DecodeSheets() {
 func (tglp *TGLP) Encode() []byte {
 	var res []byte
 
-	tglp.SectionSize = tglp.SheetDataOffset - FFNT_HEADER_SIZE - FINF_HEADER_SIZE + tglp.SheetSize*uint32(tglp.NumOfSheets)
-	// fmt.Println(tglp.SectionSize)
+	// pprint(tglp)
 
 	header := tglp.EncodeHeader()
+	// pprint(tglp)
 	padding := make([]byte, tglp.computePredataPadding())
 	allSheetData := tglp.EncodeBlankSheets()
-	// fmt.Println(len(allSheetData))
+	// fmt.Println("data len:", len(allSheetData))
 
 	res = append(res, header...)
 	res = append(res, padding...)
 	res = append(res, allSheetData...)
+	// fmt.Println("tglp size:", len(res))
 
 	assertEqual(int(tglp.SheetDataOffset), FFNT_HEADER_SIZE+FINF_HEADER_SIZE+TGLP_HEADER_SIZE+len(padding))
 	assertEqual(int(tglp.SectionSize), len(res))
@@ -216,7 +220,7 @@ func (tglp *TGLP) computePredataPadding() int {
 	// Not to scale representation of a portion of the bffnt file in raw bytes
 	// for visual purposes
 	//                      |-------------TGLP section size---------------------------|
-	// FFNT   FINF          TGLP header    padding              tglp SheetDataOffset
+	// FFNT   FINF          TGLP header    TGLP padding         tglp SheetDataOffset
 	// |      |             |              |                    |
 	// aaaaaa bbbbbbbbbbbbb cccccccccccccc 00000000000000000000 ddddddddddddddddddddddd
 
@@ -229,7 +233,7 @@ func (tglp *TGLP) computePredataPadding() int {
 // toolbox and do a texture replace.  Switch toolbox will then swizzle and
 // encode the sheets for me.
 func (tglp *TGLP) EncodeBlankSheets() []byte {
-	return make([]byte, int(tglp.SheetWidth)*int(tglp.SheetHeight)*int(tglp.NumOfSheets))
+	return make([]byte, int(tglp.SheetSize)*int(tglp.NumOfSheets))
 }
 
 func (tglp *TGLP) EncodeSheetData() []byte {
