@@ -3,6 +3,7 @@ package bffnt_headers
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -12,18 +13,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const botwNormalSHash = "f993a5822f3ce05e51e0440b46bd1345"
-
 func TestBFFNT(t *testing.T) {
-	bffntFile := "../WiiU_fonts/botw/NormalS/NormalS_00.bffnt"
+	testCase(t, "../WiiU_fonts/botw/NormalS/NormalS_00.bffnt", "f993a5822f3ce05e51e0440b46bd1345")
+	testCase(t, "../WiiU_fonts/botw/Normal/Normal_00.bffnt", "8d7f1ec5872da263a95a5937ccd8a372")
+	testCase(t, "../WiiU_fonts/botw/Caption/Caption_00.bffnt", "efc0070d11289b18f28525a755e75acb")
+}
+
+func testCase(t *testing.T, bffntFile string, expectedFileHash string) {
+	t.Log(fmt.Sprintf("Testing %s", bffntFile))
 	bffntRaw, err := ioutil.ReadFile(bffntFile)
 	handleErr(err)
 
 	//TODO verify the file with an MD5 hash
 	hash, err := hash_file_md5(bffntFile)
 	handleErr(err)
-	expectedHash := botwNormalSHash
-	assert.Equal(t, expectedHash, hash, "md5 hash of bffnt file mismatch. test is invalid.")
+	assert.Equal(t, expectedFileHash, hash, "md5 hash of bffnt file mismatch. test is invalid.")
 
 	var ffnt FFNT
 	ffnt.Decode(bffntRaw)

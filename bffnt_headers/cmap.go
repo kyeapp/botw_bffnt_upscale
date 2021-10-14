@@ -68,11 +68,11 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 	// CMAPs.
 	switch cmap.MappingMethod {
 	case 0:
-		characterOffset := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
+		cmap.CharacterOffset = binary.BigEndian.Uint16(data[dataPos : dataPos+2])
 		dataPos += 2
 		for i := cmap.CodeBegin; i <= cmap.CodeEnd; i++ {
 			charAsciiCode := i
-			charIndex := i - cmap.CodeBegin + characterOffset
+			charIndex := i - cmap.CodeBegin + cmap.CharacterOffset
 			asciiSlice = append(asciiSlice, charAsciiCode)
 			indexSlice = append(indexSlice, charIndex)
 
