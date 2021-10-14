@@ -144,7 +144,6 @@ func (krng *KRNG) Decode(bffntRaw []byte) {
 
 func (krng *KRNG) Encode(startOffset uint32) []byte {
 	if len(krng.KerningTable) == 0 {
-		panic("kerning tbale is empty")
 		return []byte{}
 	}
 
