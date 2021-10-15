@@ -57,10 +57,12 @@ type TGLP struct { //    Offset  Size  Description
 func (tglp *TGLP) Upscale(scale uint8) {
 	tglp.SheetWidth *= uint16(scale)
 	tglp.SheetHeight *= uint16(tglp.NumOfSheets) * uint16(scale)
-	tglp.SheetSize = uint32(tglp.SheetWidth) * uint32(tglp.SheetHeight)
+	tglp.SheetSize = uint32(tglp.SheetWidth) * uint32(tglp.SheetHeight) * uint32(tglp.NumOfSheets)
 	if tglp.SheetImageFormat == 12 {
 		tglp.SheetSize /= 2
 	}
+
+	tglp.SectionSize = TGLP_HEADER_SIZE + uint32(tglp.computePredataPadding()) + tglp.SheetSize
 	tglp.CellWidth *= scale
 	tglp.CellHeight *= scale
 	tglp.MaxCharWidth *= scale
@@ -94,20 +96,21 @@ func (tglp *TGLP) Decode(raw []byte) {
 
 	// tglp.DecodeSheets()
 	if Debug {
-		fmt.Println("MagicHeader     ", tglp.MagicHeader)
-		fmt.Println("SectionSize     ", tglp.SectionSize)
-		fmt.Println("CellWidth       ", tglp.CellWidth)
-		fmt.Println("CellHeight      ", tglp.CellHeight)
-		fmt.Println("NumOfSheets     ", tglp.NumOfSheets)
-		fmt.Println("MaxCharWidth    ", tglp.MaxCharWidth)
-		fmt.Println("SheetSize       ", tglp.SheetSize)
-		fmt.Println("BaselinePosition", tglp.BaselinePosition)
-		fmt.Println("SheetImageFormat", tglp.SheetImageFormat)
-		fmt.Println("NumOfColumns    ", tglp.NumOfColumns)
-		fmt.Println("NumOfRows       ", tglp.NumOfRows)
-		fmt.Println("SheetWidth      ", tglp.SheetWidth)
-		fmt.Println("SheetHeight     ", tglp.SheetHeight)
-		fmt.Println("SheetDataOffset ", tglp.SheetDataOffset)
+		tglp.Print()
+		// fmt.Println("MagicHeader     ", tglp.MagicHeader)
+		// fmt.Println("SectionSize     ", tglp.SectionSize)
+		// fmt.Println("CellWidth       ", tglp.CellWidth)
+		// fmt.Println("CellHeight      ", tglp.CellHeight)
+		// fmt.Println("NumOfSheets     ", tglp.NumOfSheets)
+		// fmt.Println("MaxCharWidth    ", tglp.MaxCharWidth)
+		// fmt.Println("SheetSize       ", tglp.SheetSize)
+		// fmt.Println("BaselinePosition", tglp.BaselinePosition)
+		// fmt.Println("SheetImageFormat", tglp.SheetImageFormat)
+		// fmt.Println("NumOfColumns    ", tglp.NumOfColumns)
+		// fmt.Println("NumOfRows       ", tglp.NumOfRows)
+		// fmt.Println("SheetWidth      ", tglp.SheetWidth)
+		// fmt.Println("SheetHeight     ", tglp.SheetHeight)
+		// fmt.Println("SheetDataOffset ", tglp.SheetDataOffset)
 
 		fmt.Printf("Read section total of %d bytes\n", dataEnd-headerStart)
 		fmt.Println("Byte offsets start(inclusive) to end(exclusive)================")
@@ -116,6 +119,24 @@ func (tglp *TGLP) Decode(raw []byte) {
 		fmt.Printf("image data  %-8d to  %d\n", dataStart, dataEnd)
 		fmt.Println()
 	}
+}
+
+func (tglp *TGLP) Print() {
+	fmt.Println("MagicHeader     ", tglp.MagicHeader)
+	fmt.Println("SectionSize     ", tglp.SectionSize)
+	fmt.Println("CellWidth       ", tglp.CellWidth)
+	fmt.Println("CellHeight      ", tglp.CellHeight)
+	fmt.Println("NumOfSheets     ", tglp.NumOfSheets)
+	fmt.Println("MaxCharWidth    ", tglp.MaxCharWidth)
+	fmt.Println("SheetSize       ", tglp.SheetSize)
+	fmt.Println("BaselinePosition", tglp.BaselinePosition)
+	fmt.Println("SheetImageFormat", tglp.SheetImageFormat)
+	fmt.Println("NumOfColumns    ", tglp.NumOfColumns)
+	fmt.Println("NumOfRows       ", tglp.NumOfRows)
+	fmt.Println("SheetWidth      ", tglp.SheetWidth)
+	fmt.Println("SheetHeight     ", tglp.SheetHeight)
+	fmt.Println("SheetDataOffset ", tglp.SheetDataOffset)
+	fmt.Println()
 }
 
 func (tglp *TGLP) DecodeHeader(raw []byte) {

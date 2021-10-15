@@ -2,6 +2,7 @@ package main
 
 import (
 	"bffnt/bffnt_headers"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"image"
@@ -74,6 +75,14 @@ func (b *BFFNT) Encode() []byte {
 	return res
 }
 
+func pprint(s interface{}) {
+	jsonBytes, err := json.MarshalIndent(s, "", "  ")
+	// jsonBytes, err := json.Marshal(s)
+	handleErr(err)
+
+	fmt.Printf("%s\n", string(jsonBytes))
+}
+
 // This is to be used to upscale the resolution of the a texture. It will make
 // the appropriate calculations based on the amount of scaling specified
 // It will be up to the user to provide the upscaled images in a png format
@@ -81,6 +90,35 @@ func (b *BFFNT) Upscale(scale uint8) {
 	fmt.Println("upscaling image by factor of", scale)
 	// TODO: Instead of an integer scaler. change this to be a ratio. you could
 	// then do gradient scaling.  e.x. scale by 1.5x
+
+	// testing
+	// f := b.FINF
+	// b.FINF.Upscale(1)
+	// if !reflect.DeepEqual(f, b.FINF) {
+	// 	pprint(f)
+	// 	pprint(b.FINF)
+	// 	panic("FINF bad")
+	// }
+
+	// b.TGLP.Print()
+	// b.TGLP.Upscale(1)
+	// b.TGLP.Print()
+
+	// for i, _ := range b.CWDHs {
+	// 	c := b.CWDHs[i]
+	// 	b.CWDHs[i].Upscale(1)
+	// 	if !reflect.DeepEqual(c, b.CWDHs[i]) {
+	// 		panic("CWDH bad")
+	// 	}
+	// }
+
+	// k := b.KRNG
+	// b.KRNG.Upscale(1)
+	// if !reflect.DeepEqual(k, b.KRNG) {
+	// 	panic("KRNG bad")
+	// }
+
+	// panic("debug stop")
 
 	b.FINF.Upscale(scale)
 	b.TGLP.Upscale(scale)
@@ -105,12 +143,12 @@ func main() {
 	// scale 1 for 1280×720 (original)
 	// scale 2 for 2560 × 1440
 	// scale 3 for 3840 x 2160
-	// scale := 2
+	scale := 2
 
 	// upscaleBffnt("Ancient", "./nintendo_system_ui/botw-sheikah.ttf", scale)
 	// upscaleBffnt("Caption", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-M.otf", scale)
-	// upscaleBffnt("Normal", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
-	upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-DB.otf", 1)
+	upscaleBffnt("Normal", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
+	// upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-DB.otf", 2)
 	// upscaleBffnt("External", "./nintendo_system_ui/nintendo_ext_003.ttf", scale)
 
 	return
