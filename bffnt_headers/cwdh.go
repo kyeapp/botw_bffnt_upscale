@@ -35,8 +35,8 @@ func (cwdh *CWDH) Upscale(scale uint8) {
 		cwdh.Glyphs[i].CharWidth *= scale
 
 		// Adjustments for NormalS and Caption
-		cwdh.Glyphs[i].GlyphWidth += uint8(2)
-		cwdh.Glyphs[i].CharWidth += uint8(2)
+		// cwdh.Glyphs[i].GlyphWidth += uint8(2)
+		// cwdh.Glyphs[i].CharWidth += uint8(2)
 
 		// fmt.Println(cwdh.Glyphs)
 	}

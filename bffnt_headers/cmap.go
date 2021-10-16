@@ -20,7 +20,8 @@ type CMAP struct { //         Offset  Size  Description
 	Reserved       uint16 // 0x0E    0x02  Reserved?
 	NextCMAPOffset uint32 // 0x10    0x04  Next CMAP Offset
 
-	CharacterOffset uint16 // used for direct maps
+	CharacterOffset uint16 // used for direct maps (mapping method 0)
+	CharacterCount  uint16 // used for scan maps (mapping method 2)
 	// This is a pair of arrays that hold the ascii and it's index in the font
 	// texture. Characters that have an index of MaxUint16 (65535) are to be ignored.
 	CharAscii []uint16
@@ -106,10 +107,10 @@ func (cmap *CMAP) Decode(allRaw []byte, cmapOffset uint32) {
 	// read in uint16 pairs. Read a uint16 for the character ascii code and
 	// then another uint16 for the character index.
 	case 2:
-		charCount := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
+		cmap.CharacterCount = binary.BigEndian.Uint16(data[dataPos : dataPos+2])
 		dataPos += 2
 
-		for i := uint16(0); i < charCount; i++ {
+		for i := uint16(0); i < cmap.CharacterCount; i++ {
 			charAsciiCode := binary.BigEndian.Uint16(data[dataPos : dataPos+2])
 			charIndex := binary.BigEndian.Uint16(data[dataPos+2 : dataPos+4])
 			asciiSlice = append(asciiSlice, charAsciiCode)
@@ -176,7 +177,7 @@ func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 		}
 	case 2:
 		// first uint16 is amount of (charAscii, charIndex) pairs
-		binaryWrite(dataWriter, uint16(len(cmap.CharIndex)))
+		binaryWrite(dataWriter, cmap.CharacterCount)
 		for i, _ := range cmap.CharIndex {
 			binaryWrite(dataWriter, cmap.CharAscii[i])
 			binaryWrite(dataWriter, cmap.CharIndex[i])

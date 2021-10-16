@@ -78,7 +78,7 @@ func verifyLeftoverBytes(leftovers []byte) {
 	}
 }
 
-// After every CWDH and CMAP section and its data is encoded. There is padding
+// After every CWDH, CMAP, and KRNG section and its data is encoded. There is padding
 // that happens to bring the total bytes to the next 4 byte boundary. This
 // includes all the bytes of FFNT, FINF, every CWDH and every CMAP that was
 // written before.
