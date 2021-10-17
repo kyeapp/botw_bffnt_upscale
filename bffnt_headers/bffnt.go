@@ -130,9 +130,9 @@ func Run() {
 	scale := 2
 
 	// upscaleBffnt("Ancient", "./nintendo_system_ui/botw-sheikah.ttf", scale)
-	// upscaleBffnt("Caption", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-M.otf", scale)
+	upscaleBffnt("Caption", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-M.otf", scale)
 	upscaleBffnt("Normal", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
-	// upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-DB.otf", 2)
+	upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-DB.otf", 1)
 	// upscaleBffnt("External", "./nintendo_system_ui/nintendo_ext_003.ttf", scale)
 
 	return
@@ -241,7 +241,7 @@ func generateTexture(b BFFNT, fontName string, fontFile string, scale int) {
 			// fmt.Printf("The dot is at %v\n", glyphDrawer.Dot)
 
 			ascii := pairSlice[charIndex].CharAscii
-			glyph := fmt.Sprintf("%x", asciiToGlyph(fontName, ascii))
+			glyph := string(rune(asciiToGlyph(fontName, ascii)))
 			glyphBoundAtDot, _ := glyphDrawer.BoundString(glyph)
 			// fmt.Println(x, glyphBoundAtDot.Min.X, glyphBoundAtDot.Min.Y, glyphBoundAtDot.Max.X, glyphBoundAtDot.Max.Y)
 
@@ -311,7 +311,7 @@ func getBotwFontSettings(fontName string, scale int) (fontSize int, outlineOffse
 
 	case "NormalS":
 		fontSize = 12 * scale
-		outlineOffset = 2 * scale // hNormalS Characters will need a 3px wide outline with 20% opacaity. I use GIMP.
+		outlineOffset = 1 //3 * scale // hNormalS Characters will need a 3px wide outline with 20% opacaity. I use GIMP.
 
 	case "External":
 		fontSize = 15 * scale

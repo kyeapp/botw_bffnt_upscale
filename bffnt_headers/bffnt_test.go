@@ -168,6 +168,10 @@ func verifyBffnt(t *testing.T, bffntRaw []byte) {
 	switch tglp.SheetImageFormat {
 	case 12:
 		// There seems to be a minimum of 65536 (Uint16Max). Ancient_00 observes this.
+		// fmt.Println(tglp.SheetWidth)
+		// fmt.Println(tglp.SheetHeight)
+		// fmt.Println(tglp.NumOfSheets)
+		// fmt.Println(tglp.SheetSize)
 		sheetArea := math.Max(float64(tglp.SheetWidth)*float64(tglp.SheetHeight)/2, 65536)
 		assertFail(t, int(tglp.SheetSize), int(sheetArea), "SheetWidth*SheetHeight == SheetSize/2 when ImageFormat is 12 (ETC1)")
 	case 8:
@@ -176,6 +180,7 @@ func verifyBffnt(t *testing.T, bffntRaw []byte) {
 		panic(fmt.Sprintf("SheetWidth, SheetHeight, SheetSize ratio for image format %d not yet coded.", tglp.SheetImageFormat))
 	}
 	assertFail(t, int(52+tglp.SectionSize), cwdhStart, "cwdh should start whend tglp ends")
+	// TODO: verify there are enough characters slots for the amount of characters
 
 	// verify cwdh
 	pos := 52 + tglp.SectionSize
