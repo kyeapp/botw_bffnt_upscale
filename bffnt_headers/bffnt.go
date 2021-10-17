@@ -241,7 +241,7 @@ func generateTexture(b BFFNT, fontName string, fontFile string, scale int) {
 			// fmt.Printf("The dot is at %v\n", glyphDrawer.Dot)
 
 			ascii := pairSlice[charIndex].CharAscii
-			glyph := string(asciiToGlyph(fontName, ascii))
+			glyph := fmt.Sprintf("%x", asciiToGlyph(fontName, ascii))
 			glyphBoundAtDot, _ := glyphDrawer.BoundString(glyph)
 			// fmt.Println(x, glyphBoundAtDot.Min.X, glyphBoundAtDot.Min.Y, glyphBoundAtDot.Max.X, glyphBoundAtDot.Max.Y)
 
@@ -330,19 +330,19 @@ func getBotwFontSettings(fontName string, scale int) (fontSize int, outlineOffse
 // correct glyph at a different index we can create a manual mapping here.  No
 // manual mapping means the ascii maps to the correct index in the font file.
 func asciiToGlyph(fontName string, ascii uint16) uint16 {
-	var asciiToGlyph map[uint16]uint16
+	var asciiToGlyphMap map[uint16]uint16
 	switch fontName {
 	case "Ancient":
 	case "Caption":
 	case "Normal":
 	case "NormalS":
 	case "External":
-		asciiToGlyph = getBotwExternalMap()
+		asciiToGlyphMap = getBotwExternalMap()
 	default:
 		panic("unknown font mapping")
 	}
 
-	glyphIndex, manualMappingExists := asciiToGlyph[ascii]
+	glyphIndex, manualMappingExists := asciiToGlyphMap[ascii]
 	if manualMappingExists {
 		return glyphIndex
 	}
