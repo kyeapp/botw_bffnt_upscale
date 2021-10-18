@@ -73,42 +73,33 @@ func (b *BFFNT) Encode() []byte {
 	return res
 }
 
+// Read all valid glyphs and indexes from the CMAPs and sort them
+func (b *BFFNT) GlyphIndexes() []AsciiIndexPair {
+	pairSlice := make([]AsciiIndexPair, 0)
+	for _, cmap := range b.CMAPs {
+		for j, _ := range cmap.CharAscii {
+			if cmap.CharIndex[j] != 65535 {
+				p := AsciiIndexPair{
+					CharAscii: cmap.CharAscii[j],
+					CharIndex: cmap.CharIndex[j],
+				}
+				pairSlice = append(pairSlice, p)
+			}
+		}
+	}
+
+	sort.Slice(pairSlice, func(i, j int) bool {
+		return pairSlice[i].CharIndex < pairSlice[j].CharIndex
+	})
+
+	return pairSlice
+}
+
 // This is to be used to upscale the resolution of the a texture. It will make
 // the appropriate calculations based on the amount of scaling specified
 // It will be up to the user to provide the upscaled images in a png format
 func (b *BFFNT) Upscale(scale uint8) {
 	fmt.Println("upscaling image by factor of", scale)
-	// TODO: Instead of an integer scaler. change this to be a ratio. you could
-	// then do gradient scaling.  e.x. scale by 1.5x
-
-	// testing
-	// f := b.FINF
-	// b.FINF.Upscale(1)
-	// if !reflect.DeepEqual(f, b.FINF) {
-	// 	pprint(f)
-	// 	pprint(b.FINF)
-	// 	panic("FINF bad")
-	// }
-
-	// b.TGLP.Print()
-	// b.TGLP.Upscale(1)
-	// b.TGLP.Print()
-
-	// for i, _ := range b.CWDHs {
-	// 	c := b.CWDHs[i]
-	// 	b.CWDHs[i].Upscale(1)
-	// 	if !reflect.DeepEqual(c, b.CWDHs[i]) {
-	// 		panic("CWDH bad")
-	// 	}
-	// }
-
-	// k := b.KRNG
-	// b.KRNG.Upscale(1)
-	// if !reflect.DeepEqual(k, b.KRNG) {
-	// 	panic("KRNG bad")
-	// }
-
-	// panic("debug stop")
 
 	b.FINF.Upscale(scale)
 	b.TGLP.Upscale(scale)
@@ -128,6 +119,7 @@ func Run() {
 	// scale 2 for 2560 × 1440
 	// scale 3 for 3840 x 2160
 	scale := 2
+	scale = scale
 
 	// upscaleBffnt("Ancient", "./nintendo_system_ui/botw-sheikah.ttf", scale)
 	upscaleBffnt("Caption", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-M.otf", scale)
@@ -147,9 +139,12 @@ func upscaleBffnt(botwFontName string, fontFile string, scale int) {
 	handleErr(err)
 	bffnt.Decode(bffntRaw)
 
-	// this upscales the character width height and kerning tables.
-	// the images are blank.
 	bffnt.Upscale(uint8(scale))
+	if botwFontName == "NormalS" {
+		bffnt.TGLP.BaselinePosition += 6
+	}
+
+	bffnt.generateTexture(botwFontName, fontFile, scale) // This edits the CWDH
 
 	encodedRaw := bffnt.Encode()
 	fmt.Println("encoded bytes:", len(encodedRaw))
@@ -159,38 +154,20 @@ func upscaleBffnt(botwFontName string, fontFile string, scale int) {
 	handleErr(err)
 
 	bffnt.Decode(encodedRaw)
-	// panic("need to know krng decode is working")
 
-	generateTexture(bffnt, botwFontName, fontFile, scale)
+	// glyphIndexes := bffnt.GlyphIndexes()
+	// glyphAttribute := bffnt.CWDHs[0].Glyphs
+	// for i, glyph := range glyphIndexes[:95] {
+	// 	fmt.Println(string(glyph.CharAscii), glyphAttribute[i])
+	// }
 }
 
 // https://pkg.go.dev/golang.org/x/image/font/sfnt#Font
-func generateTexture(b BFFNT, fontName string, fontFile string, scale int) {
-	pairSlice := make([]AsciiIndexPair, 0)
-	for _, cmap := range b.CMAPs {
-		for j, _ := range cmap.CharAscii {
-			if cmap.CharIndex[j] != 65535 {
-				p := AsciiIndexPair{
-					CharAscii: cmap.CharAscii[j],
-					CharIndex: cmap.CharIndex[j],
-				}
-
-				// fmt.Printf("(%d, %s)\n", p.CharIndex, string(p.CharAscii))
-				// fmt.Printf("(%d, %d)\n", p.CharIndex, p.CharAscii)
-				pairSlice = append(pairSlice, p)
-			}
-		}
-	}
-
-	sort.Slice(pairSlice, func(i, j int) bool {
-		return pairSlice[i].CharIndex < pairSlice[j].CharIndex
-	})
-
-	fmt.Printf("%d characters indexed\n", len(pairSlice))
+func (b *BFFNT) generateTexture(fontName string, fontFile string, scale int) {
+	glyphIndexes := b.GlyphIndexes()
 
 	fontSize, outlineOffset := getBotwFontSettings(fontName, scale)
 
-	// Caption
 	var (
 		filename    = fmt.Sprintf("%s_00_%dx.png", fontName, scale)
 		cellWidth   = int(b.TGLP.CellWidth)
@@ -229,18 +206,15 @@ func generateTexture(b BFFNT, fontName string, fontFile string, scale int) {
 		Dot:  fixed.P(0, 0),
 	}
 
-	// play in normal mode
-	// fmt.Println(face.Kern(rune('L'), rune('T')))
-
 	var charIndex, x, y int
-	for rowIndex := 0; rowIndex < 9999; rowIndex++ {
+	for rowIndex := 0; ; rowIndex++ {
 		y = realCellHeight*rowIndex + realBaseline
 		for columnIndex := 0; columnIndex < columnCount; columnIndex++ {
 			x = realCellWidth * columnIndex
 			glyphDrawer.Dot = fixed.P(x, y)
 			// fmt.Printf("The dot is at %v\n", glyphDrawer.Dot)
 
-			ascii := pairSlice[charIndex].CharAscii
+			ascii := glyphIndexes[charIndex].CharAscii
 			glyph := string(rune(asciiToGlyph(fontName, ascii)))
 			glyphBoundAtDot, _ := glyphDrawer.BoundString(glyph)
 			// fmt.Println(x, glyphBoundAtDot.Min.X, glyphBoundAtDot.Min.Y, glyphBoundAtDot.Max.X, glyphBoundAtDot.Max.Y)
@@ -250,9 +224,22 @@ func generateTexture(b BFFNT, fontName string, fontFile string, scale int) {
 			// glyph we are abount to draw. Generally the characters are draw
 			// to the right of the Dot but its possible for this to be
 			// negative. e.x. character j's left most pixel falls to the left
-			// of the dot.
+			// of the dot. Point26_6 is a float or something so divide by 64 to
+			// get the integer value.
 			leftAlignOffset := int(glyphBoundAtDot.Min.X/64) - x
-			// fmt.Println(leftAlignOffset)
+
+			// Drawing new glyphs means we should update the CWDH. If a glyph's
+			// recorded width is smaller than the one drawn it will get cut off
+			// when rendering in the game.
+			newGlyphWidth := int(glyphBoundAtDot.Max.X/64) - int(glyphBoundAtDot.Min.X/64) + 1
+			newGlyphWidth += 2 * outlineOffset // usually 0 except for botw NormalS, because the font has an outline
+			if newGlyphWidth > 255 {           // MaxUint8
+				panic("BFFNT's maximum glyph width is 255 (MaxUint8)")
+			}
+			// TODO: make this work with multiple CWDHs
+			glyphAttribute := b.CWDHs[0].Glyphs
+			glyphAttribute[charIndex].GlyphWidth = uint8(newGlyphWidth)
+			// fmt.Println(glyph, newGlyphWidth, glyphAttribute[charIndex])
 
 			// Use this to calculate kerning
 
@@ -264,8 +251,9 @@ func generateTexture(b BFFNT, fontName string, fontFile string, scale int) {
 
 			charIndex++
 
-			// exit when no more characters
-			if charIndex == len(pairSlice) {
+			// Exit when no more characters
+			// if charIndex == 95 {
+			if charIndex == len(glyphIndexes) {
 				goto writePng
 			}
 		}
@@ -299,23 +287,29 @@ func getBotwFontSettings(fontName string, scale int) (fontSize int, outlineOffse
 	switch fontName {
 	case "Ancient":
 		fontSize = 6 * scale
-		outlineOffset = 0
 
 	case "Caption":
-		fontSize = 9 * scale
-		outlineOffset = 0
+		fontSize = 9*scale - 1
 
 	case "Normal":
 		fontSize = 15 * scale // 2k
-		outlineOffset = 0
 
 	case "NormalS":
-		fontSize = 12 * scale
-		outlineOffset = 1 //3 * scale // hNormalS Characters will need a 3px wide outline with 20% opacaity. I use GIMP.
+		// This is what should be the proper setting for botw NormalS. However,
+		// there is a bug that stretches the words on the mini map if the
+		// textures are not the same width as the original.
+		// fontSize = 9 * scale
+		// outlineOffset = 3 * scale // NormalS Characters have a 3px wide outline with 25% opacaity. I use GIMP.
+
+		// Boost the font size and minimize the opacity outline to let
+		// the character fill out the bounds of the texture as much as
+		// possible.
+		fontSize = 11 * scale
+		outlineOffset = 1
+		// the baseline will be manually adjusted in tglp
 
 	case "External":
 		fontSize = 15 * scale
-		outlineOffset = 0
 
 	default:
 		panic("file texture generation settings unknown")

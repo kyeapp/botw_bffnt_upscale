@@ -98,16 +98,17 @@ func testCase(t *testing.T, bffntFile string, expectedFileHash string) {
 	// totalBytesEncoded := len(encodedFFNT) + len(encodedFINF) + len(encodedTGLP) + len(encodedCWDHs) + len(encodedCMAPs) + len(encodedKRNG)
 	// assert.Equal(t, len(bffntRaw), totalBytesEncoded, "the amount of bytes should be the same")
 
-	verifyUpscale(t, bffntRaw)
-
-}
-
-func verifyUpscale(t *testing.T, bffntRaw []byte) {
+	// verifyUpscale(t, bffntRaw)
 	var bffnt BFFNT
 	bffnt.Decode(bffntRaw)
 	bffnt.Upscale(1)
 	encodedUpscaled := bffnt.Encode()
 	verifyBffnt(t, encodedUpscaled)
+
+	bffnt.Upscale(2)
+	encodedUpscaled = bffnt.Encode()
+	verifyBffnt(t, encodedUpscaled)
+
 }
 
 // Sanity checking a bffnt file. Good for verifying the integrity of a bffnt after editing.
@@ -168,10 +169,6 @@ func verifyBffnt(t *testing.T, bffntRaw []byte) {
 	switch tglp.SheetImageFormat {
 	case 12:
 		// There seems to be a minimum of 65536 (Uint16Max). Ancient_00 observes this.
-		// fmt.Println(tglp.SheetWidth)
-		// fmt.Println(tglp.SheetHeight)
-		// fmt.Println(tglp.NumOfSheets)
-		// fmt.Println(tglp.SheetSize)
 		sheetArea := math.Max(float64(tglp.SheetWidth)*float64(tglp.SheetHeight)/2, 65536)
 		assertFail(t, int(tglp.SheetSize), int(sheetArea), "SheetWidth*SheetHeight == SheetSize/2 when ImageFormat is 12 (ETC1)")
 	case 8:
@@ -180,7 +177,6 @@ func verifyBffnt(t *testing.T, bffntRaw []byte) {
 		panic(fmt.Sprintf("SheetWidth, SheetHeight, SheetSize ratio for image format %d not yet coded.", tglp.SheetImageFormat))
 	}
 	assertFail(t, int(52+tglp.SectionSize), cwdhStart, "cwdh should start whend tglp ends")
-	// TODO: verify there are enough characters slots for the amount of characters
 
 	// verify cwdh
 	pos := 52 + tglp.SectionSize
@@ -230,7 +226,6 @@ func verifyBffnt(t *testing.T, bffntRaw []byte) {
 		case 0:
 			cmapDataLen = 2
 			assertFail(t, len(currCMAP.CharIndex), int(currCMAP.CodeEnd-currCMAP.CodeBegin+1), "CodeEnd CodeBegin check failed")
-			// verify end
 		case 1:
 			cmapDataLen = 2 * int(currCMAP.CodeEnd-currCMAP.CodeBegin+1)
 			assertFail(t, len(currCMAP.CharIndex), int(currCMAP.CodeEnd-currCMAP.CodeBegin+1), "CodeEnd CodeBegin check failed")
@@ -292,6 +287,10 @@ func verifyBffnt(t *testing.T, bffntRaw []byte) {
 		assertFail(t, 0, int(pos)%4, "krng should end on a 4 byte boundary")
 	}
 
+	// general checks
+	// TODO: verify that there is enough space for all Chars. Useful for rowcount miscalculation during upscale.
+	// TODO: verify that there is matching amount of cmap indexes as cwdh attributes
+
 	assertFail(t, int(pos), len(bffntRaw), "Position of our byte counter should be at the end. There are unaccounted bytes at the end")
 	assertFail(t, 0, int(pos)%4, "bffnt should end on a 4 byte boundary")
 }
@@ -311,32 +310,32 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// File hashing to ensure the original test file is original
+// File hashing used to verify test file is authentic and original
 func hash_file_md5(filePath string) (string, error) {
-	//Initialize variable returnMD5String now in case an error has to be returned
+	// Initialize variable returnMD5String now in case an error has to be returned
 	var returnMD5String string
 
-	//Open the passed argument and check for any error
+	// Open the passed argument and check for any error
 	file, err := os.Open(filePath)
 	if err != nil {
 		return returnMD5String, err
 	}
 
-	//Tell the program to call the following function when the current function returns
+	// Tell the program to call the following function when the current function returns
 	defer file.Close()
 
-	//Open a new hash interface to write to
+	// Open a new hash interface to write to
 	hash := md5.New()
 
-	//Copy the file in the hash interface and check for any error
+	// Copy the file in the hash interface and check for any error
 	if _, err := io.Copy(hash, file); err != nil {
 		return returnMD5String, err
 	}
 
-	//Get the 16 bytes hash
+	// Get the 16 bytes hash
 	hashInBytes := hash.Sum(nil)[:16]
 
-	//Convert the bytes to a string
+	// Convert the bytes to a string
 	returnMD5String = hex.EncodeToString(hashInBytes)
 
 	return returnMD5String, nil
