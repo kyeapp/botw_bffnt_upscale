@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"image/png"
 	"io/ioutil"
+	"math"
 	"os"
 	"sort"
 
@@ -124,7 +125,7 @@ func Run() {
 	// upscaleBffnt("Ancient", "./nintendo_system_ui/botw-sheikah.ttf", scale)
 	upscaleBffnt("Caption", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-M.otf", scale)
 	upscaleBffnt("Normal", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
-	upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-DB.otf", 1)
+	// upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-DB.otf", 1)
 	// upscaleBffnt("External", "./nintendo_system_ui/nintendo_ext_003.ttf", scale)
 
 	return
@@ -206,6 +207,12 @@ func (b *BFFNT) generateTexture(fontName string, fontFile string, scale int) {
 		Dot:  fixed.P(0, 0),
 	}
 
+	fmt.Println("face LT", face.Kern('L', 'T'))
+	fmt.Println("krng LT", b.KRNG.Kern('L', 'T'))
+	fmt.Println()
+	fmt.Println("face la", face.Kern('l', 'a'))
+	fmt.Println("krng la", b.KRNG.Kern('l', 'a'))
+
 	var charIndex, x, y int
 	for rowIndex := 0; ; rowIndex++ {
 		y = realCellHeight*rowIndex + realBaseline
@@ -216,16 +223,22 @@ func (b *BFFNT) generateTexture(fontName string, fontFile string, scale int) {
 
 			ascii := glyphIndexes[charIndex].CharAscii
 			glyph := string(rune(asciiToGlyph(fontName, ascii)))
+			_, glyphHasEntryInFontFile := face.GlyphAdvance(rune(asciiToGlyph(fontName, ascii)))
+			if !glyphHasEntryInFontFile {
+				fmt.Println(string(glyph), "has no entry")
+				panic("no entry")
+			}
+
 			glyphBoundAtDot, _ := glyphDrawer.BoundString(glyph)
 			// fmt.Println(x, glyphBoundAtDot.Min.X, glyphBoundAtDot.Min.Y, glyphBoundAtDot.Max.X, glyphBoundAtDot.Max.Y)
 
+			// TODO: make this work with multiple CWDHs
 			// calculate glyph x offset in it's cell so that there is only 1
 			// pixel length between the cell and the left most pixel of the
 			// glyph we are abount to draw. Generally the characters are draw
 			// to the right of the Dot but its possible for this to be
 			// negative. e.x. character j's left most pixel falls to the left
-			// of the dot. Point26_6 is a float or something so divide by 64 to
-			// get the integer value.
+			// of the dot.
 			leftAlignOffset := int(glyphBoundAtDot.Min.X/64) - x
 
 			// Drawing new glyphs means we should update the CWDH. If a glyph's
@@ -236,24 +249,37 @@ func (b *BFFNT) generateTexture(fontName string, fontFile string, scale int) {
 			if newGlyphWidth > 255 {           // MaxUint8
 				panic("BFFNT's maximum glyph width is 255 (MaxUint8)")
 			}
-			// TODO: make this work with multiple CWDHs
-			glyphAttribute := b.CWDHs[0].Glyphs
-			glyphAttribute[charIndex].GlyphWidth = uint8(newGlyphWidth)
-			// fmt.Println(glyph, newGlyphWidth, glyphAttribute[charIndex])
 
-			// Use this to calculate kerning
+			// Measure how far the dot would travel if a character is printed
+			// we can use this to dial in the character width.
+			newCharWidth := int(glyphDrawer.MeasureString(glyph) / 64)
+			if newCharWidth > 255 { // MaxUint8
+				panic("BFFNT's maximum char width is 255 (MaxUint8)")
+			}
+
+			glyphCWDH := b.CWDHs[0].Glyphs[charIndex]
+			// It looks like that nintendo might have custom spacing, if the
+			// difference is too big do not update CWDH
+			if math.Abs(float64(leftAlignOffset-int(glyphCWDH.LeftWidth))) <= float64(scale+1) {
+				fmt.Println("left ", glyph, leftAlignOffset, glyphCWDH.LeftWidth)
+				glyphCWDH.LeftWidth = int8(leftAlignOffset)
+			}
+			if math.Abs(float64(newCharWidth-int(glyphCWDH.CharWidth))) <= float64(scale+1) {
+				fmt.Println("char ", glyph, newCharWidth, glyphCWDH.CharWidth)
+				glyphCWDH.CharWidth = uint8(newCharWidth)
+			}
+			fmt.Println("glyph", glyph, newGlyphWidth, glyphCWDH.GlyphWidth)
+			glyphCWDH.GlyphWidth = uint8(newGlyphWidth)
 
 			y_nintendo := y - scale // manual adjust to compensate y difference between nintendo font generator and mine.
 			glyphDrawer.Dot = fixed.P(x-leftAlignOffset+(outlineOffset)+1, y_nintendo)
 			glyphDrawer.DrawString(glyph)
 
-			// Alight character left
-
 			charIndex++
 
 			// Exit when no more characters
-			// if charIndex == 95 {
-			if charIndex == len(glyphIndexes) {
+			if charIndex == 95 {
+				// if charIndex == len(glyphIndexes) {
 				goto writePng
 			}
 		}
