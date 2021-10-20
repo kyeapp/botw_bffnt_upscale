@@ -7,7 +7,6 @@ import (
 	"image/color"
 	"image/png"
 	"io/ioutil"
-	"math"
 	"os"
 	"sort"
 
@@ -30,6 +29,9 @@ type BFFNT struct {
 	CWDHs []CWDH
 	CMAPs []CMAP
 	KRNG  KRNG
+
+	// Map of rune to it's index. Used to find a glyph's CWDH faster
+	CWDHIndexMap map[rune]int
 }
 
 var bffntRaw []byte
@@ -42,6 +44,11 @@ func (b *BFFNT) Decode(bffntRaw []byte) {
 	b.CWDHs = DecodeCWDHs(bffntRaw, b.FINF.CWDHOffset)
 	b.CMAPs = DecodeCMAPs(bffntRaw, b.FINF.CMAPOffset)
 	b.KRNG.Decode(bffntRaw)
+
+	b.CWDHIndexMap = make(map[rune]int, 0)
+	for i, glyph := range b.GlyphIndexes() {
+		b.CWDHIndexMap[rune(glyph.CharAscii)] = i
+	}
 }
 
 func (b *BFFNT) Encode() []byte {
@@ -147,23 +154,66 @@ func upscaleBffnt(botwFontName string, fontFile string, scale int) {
 
 	bffnt.generateTexture(botwFontName, fontFile, scale) // This edits the CWDH
 
+	bffnt.manuallyAdjustWidths(botwFontName, scale)
+
 	encodedRaw := bffnt.Encode()
 	fmt.Println("encoded bytes:", len(encodedRaw))
 
 	outputBffntFile := fmt.Sprintf("%s_00_%dx_template.bffnt", botwFontName, scale)
 	err = os.WriteFile(outputBffntFile, encodedRaw, 0644)
 	handleErr(err)
-
-	bffnt.Decode(encodedRaw)
-
-	// glyphIndexes := bffnt.GlyphIndexes()
-	// glyphAttribute := bffnt.CWDHs[0].Glyphs
-	// for i, glyph := range glyphIndexes[:95] {
-	// 	fmt.Println(string(glyph.CharAscii), glyphAttribute[i])
-	// }
 }
 
-// https://pkg.go.dev/golang.org/x/image/font/sfnt#Font
+func (b *BFFNT) manuallyAdjustWidths(fontName string, scale int) {
+	if scale == 2 {
+		switch fontName {
+		case "Ancient":
+		case "Caption":
+			adjustBotwCaptionWidth(b)
+		case "Normal":
+		case "NormalS":
+		case "External":
+		default:
+			panic("unknown font")
+		}
+	}
+}
+
+func adjustBotwCaptionWidth(b *BFFNT) {
+	glyphWidths := b.CWDHs[0].Glyphs
+
+	fmt.Println(glyphWidths[b.CWDHIndexMap['P']].CharWidth)
+	glyphWidths[b.CWDHIndexMap['P']].CharWidth -= 4 // Play
+	glyphWidths[b.CWDHIndexMap['a']].CharWidth -= 4 // Play
+	glyphWidths[b.CWDHIndexMap['N']].CharWidth -= 5 // NewGame
+	glyphWidths[b.CWDHIndexMap['e']].CharWidth -= 4 // NewGame
+	glyphWidths[b.CWDHIndexMap['m']].CharWidth -= 2 // NewGame
+	glyphWidths[b.CWDHIndexMap['o']].CharWidth -= 3 // continue
+	glyphWidths[b.CWDHIndexMap['n']].CharWidth -= 2 // continue
+	glyphWidths[b.CWDHIndexMap['u']].CharWidth -= 2 // continue
+	glyphWidths[b.CWDHIndexMap['c']].CharWidth -= 2 // continue
+	glyphWidths[b.CWDHIndexMap['h']].CharWidth -= 2 // continue
+	glyphWidths[b.CWDHIndexMap['p']].CharWidth -= 2 // continue
+	glyphWidths[b.CWDHIndexMap['p']].CharWidth -= 1 // Play
+	glyphWidths[b.CWDHIndexMap['s']].CharWidth -= 2 // New Game
+	glyphWidths[b.CWDHIndexMap['H']].CharWidth -= 4 // New Game
+	glyphWidths[b.CWDHIndexMap['b']].CharWidth -= 2 // New Game
+	glyphWidths[b.CWDHIndexMap['T']].CharWidth -= 2 // New Game
+	glyphWidths[b.CWDHIndexMap['k']].CharWidth -= 1 // New Game
+	glyphWidths[b.CWDHIndexMap['d']].CharWidth -= 1 // New Game
+	glyphWidths[b.CWDHIndexMap['W']].CharWidth -= 2 // New Game
+	glyphWidths[b.CWDHIndexMap['F']].CharWidth -= 1 // New Game
+	glyphWidths[b.CWDHIndexMap['g']].CharWidth -= 1 // New Game
+	glyphWidths[b.CWDHIndexMap['t']].CharWidth -= 1 // New Game
+
+	glyphWidths[b.CWDHIndexMap['e']].LeftWidth -= 2 // New Game
+	glyphWidths[b.CWDHIndexMap['g']].LeftWidth -= 1 // New Game
+	// glyphWidths[b.CWDHIndexMap['b']].LeftWidth -= 2 // New Game
+
+	// glyphWidths[b.CWDHIndexMap['r']].LeftWidth-- // prop
+
+}
+
 func (b *BFFNT) generateTexture(fontName string, fontFile string, scale int) {
 	glyphIndexes := b.GlyphIndexes()
 
@@ -207,11 +257,11 @@ func (b *BFFNT) generateTexture(fontName string, fontFile string, scale int) {
 		Dot:  fixed.P(0, 0),
 	}
 
-	fmt.Println("face LT", face.Kern('L', 'T'))
-	fmt.Println("krng LT", b.KRNG.Kern('L', 'T'))
-	fmt.Println()
-	fmt.Println("face la", face.Kern('l', 'a'))
-	fmt.Println("krng la", b.KRNG.Kern('l', 'a'))
+	fmt.Println("face ew", face.Kern('e', 'w'))
+	fmt.Println("krng ew", b.KRNG.Kern('e', 'w'))
+	// fmt.Println()
+	// fmt.Println("face ne", face.Kern('n', 'e'))
+	// fmt.Println("krng ne", b.KRNG.Kern('n', 'e'))
 
 	var charIndex, x, y int
 	for rowIndex := 0; ; rowIndex++ {
@@ -260,15 +310,15 @@ func (b *BFFNT) generateTexture(fontName string, fontFile string, scale int) {
 			glyphCWDH := b.CWDHs[0].Glyphs[charIndex]
 			// It looks like that nintendo might have custom spacing, if the
 			// difference is too big do not update CWDH
-			if math.Abs(float64(leftAlignOffset-int(glyphCWDH.LeftWidth))) <= float64(scale+1) {
-				fmt.Println("left ", glyph, leftAlignOffset, glyphCWDH.LeftWidth)
-				glyphCWDH.LeftWidth = int8(leftAlignOffset)
-			}
-			if math.Abs(float64(newCharWidth-int(glyphCWDH.CharWidth))) <= float64(scale+1) {
-				fmt.Println("char ", glyph, newCharWidth, glyphCWDH.CharWidth)
-				glyphCWDH.CharWidth = uint8(newCharWidth)
-			}
-			fmt.Println("glyph", glyph, newGlyphWidth, glyphCWDH.GlyphWidth)
+			// if math.Abs(float64(leftAlignOffset-int(glyphCWDH.LeftWidth))) <= float64(scale+1) {
+			// 	fmt.Println("left ", glyph, leftAlignOffset, glyphCWDH.LeftWidth)
+			// 	glyphCWDH.LeftWidth = int8(leftAlignOffset)
+			// }
+			// if math.Abs(float64(newCharWidth-int(glyphCWDH.CharWidth))) <= float64(scale+1) {
+			// 	fmt.Println("char ", glyph, newCharWidth, glyphCWDH.CharWidth)
+			// 	glyphCWDH.CharWidth = uint8(newCharWidth)
+			// }
+			// fmt.Println("glyph", glyph, newGlyphWidth, glyphCWDH.GlyphWidth)
 			glyphCWDH.GlyphWidth = uint8(newGlyphWidth)
 
 			y_nintendo := y - scale // manual adjust to compensate y difference between nintendo font generator and mine.
@@ -315,7 +365,7 @@ func getBotwFontSettings(fontName string, scale int) (fontSize int, outlineOffse
 		fontSize = 6 * scale
 
 	case "Caption":
-		fontSize = 9*scale - 1
+		fontSize = 8 * scale
 
 	case "Normal":
 		fontSize = 15 * scale // 2k
