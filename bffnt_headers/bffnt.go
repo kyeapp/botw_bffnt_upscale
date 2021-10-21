@@ -181,37 +181,95 @@ func (b *BFFNT) manuallyAdjustWidths(fontName string, scale int) {
 
 func adjustBotwCaptionWidth(b *BFFNT) {
 	glyphWidths := b.CWDHs[0].Glyphs
+	glyphWidths[b.CWDHIndexMap['!']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap['"']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['&']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['\'']].CharWidth -= 6
+	glyphWidths[b.CWDHIndexMap['(']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap[')']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap['+']].CharWidth -= 4
+	glyphWidths[b.CWDHIndexMap[',']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap['-']].CharWidth -= 1
+	glyphWidths[b.CWDHIndexMap['.']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap['/']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap['0']].CharWidth -= 6
+	glyphWidths[b.CWDHIndexMap['1']].CharWidth -= 10
+	glyphWidths[b.CWDHIndexMap['2']].CharWidth -= 6
+	glyphWidths[b.CWDHIndexMap['3']].CharWidth -= 6
+	glyphWidths[b.CWDHIndexMap['4']].CharWidth -= 7
+	glyphWidths[b.CWDHIndexMap['5']].CharWidth -= 6
+	glyphWidths[b.CWDHIndexMap['6']].CharWidth -= 6
+	glyphWidths[b.CWDHIndexMap['7']].CharWidth -= 6
+	glyphWidths[b.CWDHIndexMap['8']].CharWidth -= 6
+	glyphWidths[b.CWDHIndexMap['9']].CharWidth -= 6
+	glyphWidths[b.CWDHIndexMap[':']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap[';']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap['<']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap['>']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap['?']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap['A']].CharWidth -= 1
+	glyphWidths[b.CWDHIndexMap['B']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['C']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['D']].CharWidth -= 4
+	glyphWidths[b.CWDHIndexMap['E']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['F']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['G']].CharWidth -= 1
+	glyphWidths[b.CWDHIndexMap['H']].CharWidth -= 4
+	glyphWidths[b.CWDHIndexMap['I']].CharWidth -= 1
+	glyphWidths[b.CWDHIndexMap['J']].CharWidth -= 1
+	glyphWidths[b.CWDHIndexMap['K']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['L']].CharWidth -= 4
+	glyphWidths[b.CWDHIndexMap['M']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['N']].CharWidth -= 5
+	glyphWidths[b.CWDHIndexMap['O']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['P']].CharWidth -= 4
+	glyphWidths[b.CWDHIndexMap['Q']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['R']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['S']].CharWidth -= 1
+	glyphWidths[b.CWDHIndexMap['T']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['U']].CharWidth -= 5
+	glyphWidths[b.CWDHIndexMap['V']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['W']].CharWidth -= 4
+	glyphWidths[b.CWDHIndexMap['X']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap['Y']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['Z']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['[']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap[']']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap['_']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['a']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['b']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['c']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['d']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['e']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['f']].CharWidth -= 1
+	glyphWidths[b.CWDHIndexMap['g']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['h']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['i']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap['j']].CharWidth -= 1
+	glyphWidths[b.CWDHIndexMap['k']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['l']].CharWidth -= 0
+	glyphWidths[b.CWDHIndexMap['m']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['n']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['o']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['p']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['q']].CharWidth -= 1
+	glyphWidths[b.CWDHIndexMap['r']].CharWidth -= 1
+	glyphWidths[b.CWDHIndexMap['s']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['t']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['u']].CharWidth -= 3
+	glyphWidths[b.CWDHIndexMap['v']].CharWidth -= 1
+	glyphWidths[b.CWDHIndexMap['w']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['x']].CharWidth -= 1
+	glyphWidths[b.CWDHIndexMap['y']].CharWidth -= 2
+	glyphWidths[b.CWDHIndexMap['z']].CharWidth -= 4
 
-	fmt.Println(glyphWidths[b.CWDHIndexMap['P']].CharWidth)
-	glyphWidths[b.CWDHIndexMap['P']].CharWidth -= 4 // Play
-	glyphWidths[b.CWDHIndexMap['a']].CharWidth -= 4 // Play
-	glyphWidths[b.CWDHIndexMap['N']].CharWidth -= 5 // NewGame
-	glyphWidths[b.CWDHIndexMap['e']].CharWidth -= 4 // NewGame
-	glyphWidths[b.CWDHIndexMap['m']].CharWidth -= 2 // NewGame
-	glyphWidths[b.CWDHIndexMap['o']].CharWidth -= 3 // continue
-	glyphWidths[b.CWDHIndexMap['n']].CharWidth -= 2 // continue
-	glyphWidths[b.CWDHIndexMap['u']].CharWidth -= 2 // continue
-	glyphWidths[b.CWDHIndexMap['c']].CharWidth -= 2 // continue
-	glyphWidths[b.CWDHIndexMap['h']].CharWidth -= 2 // continue
-	glyphWidths[b.CWDHIndexMap['p']].CharWidth -= 2 // continue
-	glyphWidths[b.CWDHIndexMap['p']].CharWidth -= 1 // Play
-	glyphWidths[b.CWDHIndexMap['s']].CharWidth -= 2 // New Game
-	glyphWidths[b.CWDHIndexMap['H']].CharWidth -= 4 // New Game
-	glyphWidths[b.CWDHIndexMap['b']].CharWidth -= 2 // New Game
-	glyphWidths[b.CWDHIndexMap['T']].CharWidth -= 2 // New Game
-	glyphWidths[b.CWDHIndexMap['k']].CharWidth -= 1 // New Game
-	glyphWidths[b.CWDHIndexMap['d']].CharWidth -= 1 // New Game
-	glyphWidths[b.CWDHIndexMap['W']].CharWidth -= 2 // New Game
-	glyphWidths[b.CWDHIndexMap['F']].CharWidth -= 1 // New Game
-	glyphWidths[b.CWDHIndexMap['g']].CharWidth -= 1 // New Game
-	glyphWidths[b.CWDHIndexMap['t']].CharWidth -= 1 // New Game
-
-	glyphWidths[b.CWDHIndexMap['e']].LeftWidth -= 2 // New Game
-	glyphWidths[b.CWDHIndexMap['g']].LeftWidth -= 1 // New Game
-	// glyphWidths[b.CWDHIndexMap['b']].LeftWidth -= 2 // New Game
-
-	// glyphWidths[b.CWDHIndexMap['r']].LeftWidth-- // prop
-
+	glyphWidths[b.CWDHIndexMap['C']].LeftWidth -= 2
+	glyphWidths[b.CWDHIndexMap['a']].LeftWidth += 1
+	glyphWidths[b.CWDHIndexMap['e']].LeftWidth -= 2
+	glyphWidths[b.CWDHIndexMap['g']].LeftWidth -= 1
+	glyphWidths[b.CWDHIndexMap['1']].LeftWidth -= 3
+	glyphWidths[b.CWDHIndexMap['!']].LeftWidth -= 1
+	glyphWidths[b.CWDHIndexMap[':']].LeftWidth -= 0
 }
 
 func (b *BFFNT) generateTexture(fontName string, fontFile string, scale int) {
@@ -328,8 +386,8 @@ func (b *BFFNT) generateTexture(fontName string, fontFile string, scale int) {
 			charIndex++
 
 			// Exit when no more characters
-			if charIndex == 95 {
-				// if charIndex == len(glyphIndexes) {
+			// if charIndex == 95 {
+			if charIndex == len(glyphIndexes) {
 				goto writePng
 			}
 		}
