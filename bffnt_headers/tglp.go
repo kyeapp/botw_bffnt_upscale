@@ -55,8 +55,8 @@ type TGLP struct { //    Offset  Size  Description
 }
 
 func (tglp *TGLP) Upscale(scale uint8) {
-	tglp.SheetWidth *= uint16(scale)
-	tglp.SheetHeight *= uint16(tglp.NumOfSheets) * uint16(scale)
+	// tglp.SheetWidth *= uint16(scale)
+	tglp.SheetHeight *= uint16(tglp.NumOfSheets) * uint16(scale) * uint16(scale)
 	tglp.SheetSize = uint32(tglp.SheetWidth) * uint32(tglp.SheetHeight)
 	if tglp.SheetImageFormat == 12 {
 		tglp.SheetSize /= 2
@@ -71,8 +71,8 @@ func (tglp *TGLP) Upscale(scale uint8) {
 	// manual changes
 	// tglp.SheetWidth = uint16(tglp.SheetWidth * scale)
 	// tglp.SheetHeight = uint16(1024 * scale)
-	// tglp.NumOfColumns = 20
-	tglp.NumOfRows = tglp.NumOfRows * uint16(tglp.NumOfSheets)
+	tglp.NumOfColumns /= uint16(scale)
+	tglp.NumOfRows = tglp.NumOfRows * uint16(tglp.NumOfSheets) * uint16(scale)
 
 	tglp.NumOfSheets = uint8(1) // its just easier not to deal with multiple pages
 }

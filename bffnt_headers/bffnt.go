@@ -130,9 +130,9 @@ func Run() {
 	scale = scale
 
 	// upscaleBffnt("Ancient", "./nintendo_system_ui/botw-sheikah.ttf", scale)
-	upscaleBffnt("Caption", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-M.otf", scale)
-	upscaleBffnt("Normal", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
-	// upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-DB.otf", 1)
+	// upscaleBffnt("Caption", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-M.otf", scale)
+	// upscaleBffnt("Normal", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
+	upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-DB.otf", scale)
 	// upscaleBffnt("External", "./nintendo_system_ui/nintendo_ext_003.ttf", scale)
 
 	return
@@ -149,7 +149,7 @@ func upscaleBffnt(botwFontName string, fontFile string, scale int) {
 
 	bffnt.Upscale(uint8(scale))
 	if botwFontName == "NormalS" {
-		bffnt.TGLP.BaselinePosition += 6
+		// bffnt.TGLP.BaselinePosition += 6
 	}
 
 	bffnt.generateTexture(botwFontName, fontFile, scale) // This edits the CWDH
@@ -432,14 +432,14 @@ func getBotwFontSettings(fontName string, scale int) (fontSize int, outlineOffse
 		// This is what should be the proper setting for botw NormalS. However,
 		// there is a bug that stretches the words on the mini map if the
 		// textures are not the same width as the original.
-		// fontSize = 9 * scale
-		// outlineOffset = 3 * scale // NormalS Characters have a 3px wide outline with 25% opacaity. I use GIMP.
+		fontSize = 9 * scale
+		outlineOffset = 3 * scale // NormalS Characters have a 3px wide outline with 25% opacaity. I use GIMP.
 
 		// Boost the font size and minimize the opacity outline to let
 		// the character fill out the bounds of the texture as much as
 		// possible.
-		fontSize = 11 * scale
-		outlineOffset = 1
+		// fontSize = 11 * scale
+		// outlineOffset = 1
 		// the baseline will be manually adjusted in tglp
 
 	case "External":
