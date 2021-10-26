@@ -27,11 +27,11 @@ type glyphInfo struct {
 	CharWidth  uint8
 }
 
-func (cwdh *CWDH) Upscale(scale uint8) {
+func (cwdh *CWDH) Upscale(scale float64) {
 	for i, _ := range cwdh.Glyphs {
-		cwdh.Glyphs[i].LeftWidth *= int8(scale)
-		cwdh.Glyphs[i].GlyphWidth *= scale
-		cwdh.Glyphs[i].CharWidth *= scale
+		cwdh.Glyphs[i].LeftWidth = int8(float64(cwdh.Glyphs[i].LeftWidth) * scale)
+		cwdh.Glyphs[i].GlyphWidth = uint8(float64(cwdh.Glyphs[i].GlyphWidth) * scale)
+		cwdh.Glyphs[i].CharWidth = uint8(float64(cwdh.Glyphs[i].CharWidth) * scale)
 	}
 }
 

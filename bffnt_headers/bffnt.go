@@ -106,9 +106,7 @@ func (b *BFFNT) GlyphIndexes() []AsciiIndexPair {
 // This is to be used to upscale the resolution of the a texture. It will make
 // the appropriate calculations based on the amount of scaling specified
 // It will be up to the user to provide the upscaled images in a png format
-func (b *BFFNT) Upscale(scale uint8) {
-	fmt.Println("upscaling image by factor of", scale)
-
+func (b *BFFNT) Upscale(scale float64) {
 	b.FINF.Upscale(scale)
 	b.TGLP.Upscale(scale)
 
@@ -126,7 +124,7 @@ func Run() {
 	// scale 1 for 1280×720 (original)
 	// scale 2 for 2560 × 1440
 	// scale 3 for 3840 x 2160
-	scale := 2
+	scale := 1.5
 	scale = scale
 
 	// upscaleBffnt("Ancient", "./nintendo_system_ui/botw-sheikah.ttf", scale)
@@ -138,7 +136,7 @@ func Run() {
 	return
 }
 
-func upscaleBffnt(botwFontName string, fontFile string, scale int) {
+func upscaleBffnt(botwFontName string, fontFile string, scale float64) {
 	bffntFile := fmt.Sprintf("./WiiU_fonts/botw/%[1]s/%[1]s_00.bffnt", botwFontName)
 	fmt.Println("Reading bffnt file", bffntFile)
 	bffntRaw, err = ioutil.ReadFile(bffntFile)
@@ -147,7 +145,8 @@ func upscaleBffnt(botwFontName string, fontFile string, scale int) {
 	handleErr(err)
 	bffnt.Decode(bffntRaw)
 
-	bffnt.Upscale(uint8(scale))
+	fmt.Println("upscaling image by factor of", scale)
+	bffnt.Upscale(scale)
 	if botwFontName == "NormalS" {
 		// bffnt.TGLP.BaselinePosition += 6
 	}
@@ -159,13 +158,13 @@ func upscaleBffnt(botwFontName string, fontFile string, scale int) {
 	encodedRaw := bffnt.Encode()
 	fmt.Println("encoded bytes:", len(encodedRaw))
 
-	outputBffntFile := fmt.Sprintf("%s_00_%dx_template.bffnt", botwFontName, scale)
+	outputBffntFile := fmt.Sprintf("%s_00_%.2fx_template.bffnt", botwFontName, scale)
 	err = os.WriteFile(outputBffntFile, encodedRaw, 0644)
 	handleErr(err)
 }
 
-func (b *BFFNT) manuallyAdjustWidths(fontName string, scale int) {
-	if scale == 2 {
+func (b *BFFNT) manuallyAdjustWidths(fontName string, scale float64) {
+	if scale == float64(2) {
 		switch fontName {
 		case "Ancient":
 		case "Caption":
@@ -272,17 +271,18 @@ func adjustBotwCaptionWidth(b *BFFNT) {
 	glyphWidths[b.CWDHIndexMap[':']].LeftWidth -= 0
 }
 
-func (b *BFFNT) generateTexture(fontName string, fontFile string, scale int) {
+// https://pkg.go.dev/golang.org/x/image/font/sfnt#Font
+func (b *BFFNT) generateTexture(fontName string, fontFile string, scale float64) {
 	glyphIndexes := b.GlyphIndexes()
 
 	fontSize, outlineOffset := getBotwFontSettings(fontName, scale)
 
 	var (
-		filename    = fmt.Sprintf("%s_00_%dx.png", fontName, scale)
+		filename    = fmt.Sprintf("%s_00_%.2fx.png", fontName, scale)
 		cellWidth   = int(b.TGLP.CellWidth)
 		cellHeight  = int(b.TGLP.CellHeight)
 		columnCount = int(b.TGLP.NumOfColumns)
-		baseline    = int(b.TGLP.BaselinePosition) + scale
+		baseline    = int(b.TGLP.BaselinePosition) + int(scale)
 		sheetHeight = int(b.TGLP.SheetHeight)
 		sheetWidth  = int(b.TGLP.SheetWidth)
 
@@ -300,13 +300,14 @@ func (b *BFFNT) generateTexture(fontName string, fontFile string, scale int) {
 	handleErr(err)
 
 	face, err := opentype.NewFace(f, &opentype.FaceOptions{
-		Size:    float64(fontSize),
+		Size:    fontSize,
 		DPI:     144,
 		Hinting: font.HintingFull,
 	})
 	handleErr(err)
 
 	// drawer.MeasureString can be used to modify kerning table
+	fmt.Println(sheetWidth, sheetHeight)
 	dst := image.NewAlpha(image.Rect(0, 0, sheetWidth, sheetHeight))
 	glyphDrawer := font.Drawer{
 		Dst:  dst,
@@ -379,7 +380,7 @@ func (b *BFFNT) generateTexture(fontName string, fontFile string, scale int) {
 			// fmt.Println("glyph", glyph, newGlyphWidth, glyphCWDH.GlyphWidth)
 			glyphCWDH.GlyphWidth = uint8(newGlyphWidth)
 
-			y_nintendo := y - scale // manual adjust to compensate y difference between nintendo font generator and mine.
+			y_nintendo := y - int(scale) // manual adjust to compensate y difference between nintendo font generator and mine.
 			glyphDrawer.Dot = fixed.P(x-leftAlignOffset+(outlineOffset)+1, y_nintendo)
 			glyphDrawer.DrawString(glyph)
 
@@ -417,7 +418,7 @@ writePng:
 }
 
 // Manual adjustments for each font to closely resemble the original
-func getBotwFontSettings(fontName string, scale int) (fontSize int, outlineOffset int) {
+func getBotwFontSettings(fontName string, scale float64) (fontSize float64, outlineOffset int) {
 	switch fontName {
 	case "Ancient":
 		fontSize = 6 * scale
@@ -433,7 +434,7 @@ func getBotwFontSettings(fontName string, scale int) (fontSize int, outlineOffse
 		// there is a bug that stretches the words on the mini map if the
 		// textures are not the same width as the original.
 		fontSize = 9 * scale
-		outlineOffset = 3 * scale // NormalS Characters have a 3px wide outline with 25% opacaity. I use GIMP.
+		outlineOffset = 3 * int(scale) // NormalS Characters have a 3px wide outline with 25% opacaity. I use GIMP.
 
 		// Boost the font size and minimize the opacity outline to let
 		// the character fill out the bounds of the texture as much as

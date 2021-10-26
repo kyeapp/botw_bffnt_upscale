@@ -50,10 +50,9 @@ func (krng *KRNG) Decode(bffntRaw []byte) {
 	// Since the kerning offset is not recorded we need to find it first.
 	headerStart := strings.Index(string(bffntRaw), KRNG_MAGIC_HEADER)
 	if headerStart == -1 {
-		fmt.Println("no kerning table")
+		// fmt.Println("no kerning table")
 		return
 	}
-	fmt.Println("has table")
 
 	headerEnd := headerStart + KRNG_HEADER_SIZE
 	headerRaw := bffntRaw[headerStart:headerEnd]
@@ -222,10 +221,10 @@ func getFirstCharsOrdered(kerningTable map[uint16][]kerningPair) []uint16 {
 	return res
 }
 
-func (krng *KRNG) Upscale(scale uint8) {
+func (krng *KRNG) Upscale(scale float64) {
 	for _, kPairs := range krng.KerningTable {
-		for _, pair := range kPairs {
-			pair.KerningValue *= int16(scale)
+		for i, pair := range kPairs {
+			kPairs[i].KerningValue = int16(float64(pair.KerningValue) * scale)
 		}
 	}
 }
