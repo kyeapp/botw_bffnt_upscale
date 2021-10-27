@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image"
+	"math"
 
 	"github.com/disintegration/imaging"
 )
@@ -55,24 +56,25 @@ type TGLP struct { //    Offset  Size  Description
 }
 
 func (tglp *TGLP) Upscale(scale float64) {
-	tglp.SheetWidth = uint16(float64(tglp.SheetWidth) * scale)
-	tglp.SheetHeight = uint16(float64(tglp.SheetHeight*uint16(tglp.NumOfSheets)) * scale)
+	tglp.SheetWidth = uint16(math.Ceil(float64(tglp.SheetWidth) * scale))
+	tglp.SheetHeight = uint16(math.Ceil(float64(tglp.SheetHeight*uint16(tglp.NumOfSheets)) * scale))
 	tglp.SheetSize = uint32(tglp.SheetWidth) * uint32(tglp.SheetHeight)
+	tglp.SheetImageFormat = uint16(12)
 	if tglp.SheetImageFormat == 12 {
-		tglp.SheetSize /= 2
+		tglp.SheetSize = uint32(math.Ceil(float64(tglp.SheetSize) / float64(2)))
 	}
 
 	tglp.SectionSize = TGLP_HEADER_SIZE + uint32(tglp.computePredataPadding()) + tglp.SheetSize
-	tglp.CellWidth = uint8(float64(tglp.CellWidth) * scale)
-	tglp.CellHeight = uint8(float64(tglp.CellHeight) * scale)
-	tglp.MaxCharWidth = uint8(float64(tglp.MaxCharWidth) * scale)
-	tglp.BaselinePosition = uint16(float64(tglp.BaselinePosition) * scale)
+	tglp.CellWidth = uint8(math.Ceil(float64(tglp.CellWidth) * scale))
+	tglp.CellHeight = uint8(math.Ceil(float64(tglp.CellHeight) * scale))
+	tglp.MaxCharWidth = uint8(math.Ceil(float64(tglp.MaxCharWidth) * scale))
+	tglp.BaselinePosition = uint16(math.Ceil(float64(tglp.BaselinePosition) * scale))
 
 	// manual changes
 	// tglp.SheetWidth = uint16(tglp.SheetWidth * scale)
 	// tglp.SheetHeight = uint16(1024 * scale)
-	tglp.NumOfColumns /= uint16(scale)
-	tglp.NumOfRows = tglp.NumOfRows * uint16(tglp.NumOfSheets) * uint16(scale)
+	// tglp.NumOfColumns /= uint16(scale)
+	tglp.NumOfRows = tglp.NumOfRows * uint16(tglp.NumOfSheets)
 
 	tglp.NumOfSheets = uint8(1) // its just easier not to deal with multiple pages
 }

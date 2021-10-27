@@ -124,13 +124,14 @@ func Run() {
 	// scale 1 for 1280×720 (original)
 	// scale 2 for 2560 × 1440
 	// scale 3 for 3840 x 2160
-	scale := 1.5
+	scale := 2.0
 	scale = scale
 
 	// upscaleBffnt("Ancient", "./nintendo_system_ui/botw-sheikah.ttf", scale)
-	// upscaleBffnt("Caption", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-M.otf", scale)
-	// upscaleBffnt("Normal", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
-	upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-DB.otf", scale)
+	upscaleBffnt("Caption", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-M.otf", scale)
+	upscaleBffnt("Normal", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
+	// upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-DB.otf", scale)
+	// upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
 	// upscaleBffnt("External", "./nintendo_system_ui/nintendo_ext_003.ttf", scale)
 
 	return
@@ -161,6 +162,8 @@ func upscaleBffnt(botwFontName string, fontFile string, scale float64) {
 	outputBffntFile := fmt.Sprintf("%s_00_%.2fx_template.bffnt", botwFontName, scale)
 	err = os.WriteFile(outputBffntFile, encodedRaw, 0644)
 	handleErr(err)
+
+	// bffnt.Decode(encodedRaw)
 }
 
 func (b *BFFNT) manuallyAdjustWidths(fontName string, scale float64) {
@@ -434,7 +437,8 @@ func getBotwFontSettings(fontName string, scale float64) (fontSize float64, outl
 		// there is a bug that stretches the words on the mini map if the
 		// textures are not the same width as the original.
 		fontSize = 9 * scale
-		outlineOffset = 3 * int(scale) // NormalS Characters have a 3px wide outline with 25% opacaity. I use GIMP.
+		// fontSize = 9 * scale
+		outlineOffset = 2 * int(scale) // NormalS Characters have a 2px wide outline with 25% opacaity. I use GIMP.
 
 		// Boost the font size and minimize the opacity outline to let
 		// the character fill out the bounds of the texture as much as

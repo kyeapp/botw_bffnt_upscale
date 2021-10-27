@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 )
 
 type FINF struct { //  Offset  Size  Description
@@ -89,12 +90,12 @@ func (finf *FINF) Encode(tglpOffset int, cwdhOffset int, cmapOffset int) []byte 
 // Characters have a theorical maximum size of 256 pixels becuase some
 // attributes are defined with a uint8. A uint8's maxmum size is 256.
 func (finf *FINF) Upscale(scale float64) {
-	finf.Height = uint8(float64(finf.Height) * scale)
-	finf.Width = uint8(float64(finf.Width) * scale)
-	finf.Ascent = uint8(float64(finf.Ascent) * scale)
-	finf.LineFeed = uint16(float64(finf.LineFeed) * scale)
-	finf.AlterCharIndex = uint16(float64(finf.AlterCharIndex) * scale)
-	finf.DefaultLeftWidth = uint8(float64(finf.DefaultLeftWidth) * scale)
-	finf.DefaultGlyphWidth = uint8(float64(finf.DefaultGlyphWidth) * scale)
-	finf.DefaultCharWidth = uint8(float64(finf.DefaultCharWidth) * scale)
+	finf.Height = uint8(math.Ceil(float64(finf.Height) * scale))
+	finf.Width = uint8(math.Ceil(float64(finf.Width) * scale))
+	finf.Ascent = uint8(math.Ceil(float64(finf.Ascent) * scale))
+	finf.LineFeed = uint16(math.Ceil(float64(finf.LineFeed) * scale))
+	finf.AlterCharIndex = uint16(math.Ceil(float64(finf.AlterCharIndex) * scale))
+	finf.DefaultLeftWidth = uint8(math.Ceil(float64(finf.DefaultLeftWidth) * scale))
+	finf.DefaultGlyphWidth = uint8(math.Ceil(float64(finf.DefaultGlyphWidth) * scale))
+	finf.DefaultCharWidth = uint8(math.Ceil(float64(finf.DefaultCharWidth) * scale))
 }

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 )
@@ -183,7 +184,7 @@ func (krng *KRNG) Encode(startOffset uint32) []byte {
 	}
 	dataWriter.Flush()
 
-	padToNext4ByteBoundary(dataWriter, dataBuf, int(startOffset))
+	padToNext4ByteBoundary(dataWriter, &dataBuf, int(startOffset))
 
 	krngData := dataBuf.Bytes()
 	// Edit krng header
@@ -224,7 +225,7 @@ func getFirstCharsOrdered(kerningTable map[uint16][]kerningPair) []uint16 {
 func (krng *KRNG) Upscale(scale float64) {
 	for _, kPairs := range krng.KerningTable {
 		for i, pair := range kPairs {
-			kPairs[i].KerningValue = int16(float64(pair.KerningValue) * scale)
+			kPairs[i].KerningValue = int16(math.Ceil(float64(pair.KerningValue) * scale))
 		}
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 )
 
 type CWDH struct { //        Offset  Size  Description
@@ -29,9 +30,9 @@ type glyphInfo struct {
 
 func (cwdh *CWDH) Upscale(scale float64) {
 	for i, _ := range cwdh.Glyphs {
-		cwdh.Glyphs[i].LeftWidth = int8(float64(cwdh.Glyphs[i].LeftWidth) * scale)
-		cwdh.Glyphs[i].GlyphWidth = uint8(float64(cwdh.Glyphs[i].GlyphWidth) * scale)
-		cwdh.Glyphs[i].CharWidth = uint8(float64(cwdh.Glyphs[i].CharWidth) * scale)
+		cwdh.Glyphs[i].LeftWidth = int8(math.Ceil(float64(cwdh.Glyphs[i].LeftWidth) * scale))
+		cwdh.Glyphs[i].GlyphWidth = uint8(math.Ceil(float64(cwdh.Glyphs[i].GlyphWidth) * scale))
+		cwdh.Glyphs[i].CharWidth = uint8(math.Ceil(float64(cwdh.Glyphs[i].CharWidth) * scale))
 	}
 }
 
@@ -121,7 +122,7 @@ func (cwdh *CWDH) Encode(startOffset uint32, isLastCWDH bool) []byte {
 	}
 	dataWriter.Flush()
 
-	padToNext4ByteBoundary(dataWriter, dataBuf, int(startOffset))
+	padToNext4ByteBoundary(dataWriter, &dataBuf, int(startOffset))
 
 	glyphData := dataBuf.Bytes()
 	// Calculate and edit the header information

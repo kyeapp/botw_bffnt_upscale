@@ -184,7 +184,7 @@ func (cmap *CMAP) Encode(startOffset uint32, isLastCMAP bool) []byte {
 		}
 	}
 	dataWriter.Flush()
-	padToNext4ByteBoundary(dataWriter, cmapDataBuf, int(startOffset))
+	padToNext4ByteBoundary(dataWriter, &cmapDataBuf, int(startOffset))
 
 	cmapData := cmapDataBuf.Bytes()
 	// Calculate and edit the header information

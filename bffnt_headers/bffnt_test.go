@@ -105,7 +105,18 @@ func testCase(t *testing.T, bffntFile string, expectedFileHash string) {
 	encodedUpscaled := bffnt.Encode()
 	verifyBffnt(t, encodedUpscaled)
 
+	bffnt.Decode(bffntRaw)
 	bffnt.Upscale(2)
+	encodedUpscaled = bffnt.Encode()
+	verifyBffnt(t, encodedUpscaled)
+
+	bffnt.Decode(bffntRaw)
+	bffnt.Upscale(1.1)
+	encodedUpscaled = bffnt.Encode()
+	verifyBffnt(t, encodedUpscaled)
+
+	bffnt.Decode(bffntRaw)
+	bffnt.Upscale(1.2)
 	encodedUpscaled = bffnt.Encode()
 	verifyBffnt(t, encodedUpscaled)
 
@@ -169,7 +180,7 @@ func verifyBffnt(t *testing.T, bffntRaw []byte) {
 	switch tglp.SheetImageFormat {
 	case 12:
 		// There seems to be a minimum of 65536 (Uint16Max). Ancient_00 observes this.
-		sheetArea := math.Max(float64(tglp.SheetWidth)*float64(tglp.SheetHeight)/2, 65536)
+		sheetArea := math.Max(math.Ceil(float64(tglp.SheetWidth)*float64(tglp.SheetHeight)/float64(2)), 65536)
 		assertFail(t, int(tglp.SheetSize), int(sheetArea), "SheetWidth*SheetHeight == SheetSize/2 when ImageFormat is 12 (ETC1)")
 	case 8:
 		assertFail(t, int(tglp.SheetSize), int(tglp.SheetWidth)*int(tglp.SheetHeight), "SheetWidth*SheetHeight == SheetSize when ImageFormat is 8 (A8)")

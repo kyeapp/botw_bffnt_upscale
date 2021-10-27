@@ -97,7 +97,7 @@ func check4ByteBoundary(offset int) {
 	}
 }
 
-func padToNext4ByteBoundary(w *bufio.Writer, buf bytes.Buffer, startOffset int) {
+func padToNext4ByteBoundary(w *bufio.Writer, buf *bytes.Buffer, startOffset int) {
 	w.Flush()
 	totalBytesSoFar := startOffset - 8 + len(buf.Bytes())
 
@@ -107,8 +107,8 @@ func padToNext4ByteBoundary(w *bufio.Writer, buf bytes.Buffer, startOffset int) 
 	}
 	w.Flush()
 
-	totalBytesWithPadding := startOffset + len(buf.Bytes())
-	if paddingToNext4ByteBoundary(startOffset) != 0 {
+	totalBytesWithPadding := totalBytesSoFar + paddingAmount
+	if paddingToNext4ByteBoundary(totalBytesWithPadding) != 0 {
 		panic(fmt.Sprintf("%d not at 4 byte boundary", totalBytesWithPadding))
 	}
 }
