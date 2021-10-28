@@ -127,9 +127,9 @@ func Run() {
 	scale := 2.0
 	scale = scale
 
-	// upscaleBffnt("Ancient", "./nintendo_system_ui/botw-sheikah.ttf", scale)
-	upscaleBffnt("Caption", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-M.otf", scale)
-	upscaleBffnt("Normal", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
+	upscaleBffnt("Ancient", "./nintendo_system_ui/botw-sheikah.ttf", scale)
+	// upscaleBffnt("Caption", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-M.otf", scale)
+	// upscaleBffnt("Normal", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
 	// upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-DB.otf", scale)
 	// upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
 	// upscaleBffnt("External", "./nintendo_system_ui/nintendo_ext_003.ttf", scale)
@@ -335,11 +335,7 @@ func (b *BFFNT) generateTexture(fontName string, fontFile string, scale float64)
 
 			ascii := glyphIndexes[charIndex].CharAscii
 			glyph := string(rune(asciiToGlyph(fontName, ascii)))
-			_, glyphHasEntryInFontFile := face.GlyphAdvance(rune(asciiToGlyph(fontName, ascii)))
-			if !glyphHasEntryInFontFile {
-				fmt.Println(string(glyph), "has no entry")
-				panic("no entry")
-			}
+			// fmt.Println(charIndex, ascii, glyph)
 
 			glyphBoundAtDot, _ := glyphDrawer.BoundString(glyph)
 			// fmt.Println(x, glyphBoundAtDot.Min.X, glyphBoundAtDot.Min.Y, glyphBoundAtDot.Max.X, glyphBoundAtDot.Max.Y)
@@ -424,7 +420,7 @@ writePng:
 func getBotwFontSettings(fontName string, scale float64) (fontSize float64, outlineOffset int) {
 	switch fontName {
 	case "Ancient":
-		fontSize = 6 * scale
+		fontSize = 5.5 * scale
 
 	case "Caption":
 		fontSize = 8 * scale
@@ -466,6 +462,7 @@ func asciiToGlyph(fontName string, ascii uint16) uint16 {
 	var asciiToGlyphMap map[uint16]uint16
 	switch fontName {
 	case "Ancient":
+		asciiToGlyphMap = getBotwAncientMap()
 	case "Caption":
 	case "Normal":
 	case "NormalS":
@@ -481,6 +478,31 @@ func asciiToGlyph(fontName string, ascii uint16) uint16 {
 	}
 
 	return ascii
+}
+
+// mapping botw external font character indexes to nintendo_ext_003.ttf
+func getBotwAncientMap() map[uint16]uint16 {
+	botwAncientMapping := make(map[uint16]uint16, 0)
+
+	// map indexes with no glyphs to empty
+	for i := uint16(34); i <= uint16(44); i++ {
+		botwAncientMapping[i] = 32
+	}
+	for i := uint16(47); i <= uint16(62); i++ {
+		botwAncientMapping[i] = 32
+	}
+	botwAncientMapping[64] = 32
+	for i := uint16(91); i <= uint16(96); i++ {
+		botwAncientMapping[i] = 32
+	}
+	botwAncientMapping[123] = 32
+
+	// remap all capital letters to lowercase ones.
+	for i := uint16(65); i <= uint16(90); i++ {
+		botwAncientMapping[i] = i + 32
+	}
+
+	return botwAncientMapping
 }
 
 // mapping botw external font character indexes to nintendo_ext_003.ttf
