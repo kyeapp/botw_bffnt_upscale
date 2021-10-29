@@ -59,7 +59,7 @@ func (tglp *TGLP) Upscale(scale float64) {
 	tglp.SheetWidth = uint16(math.Ceil(float64(tglp.SheetWidth) * scale))
 	tglp.SheetHeight = uint16(math.Ceil(float64(tglp.SheetHeight*uint16(tglp.NumOfSheets)) * scale))
 	tglp.SheetSize = uint32(tglp.SheetWidth) * uint32(tglp.SheetHeight)
-	tglp.SheetImageFormat = uint16(12)
+	// tglp.SheetImageFormat = uint16(12)
 	if tglp.SheetImageFormat == 12 {
 		tglp.SheetSize = uint32(math.Ceil(float64(tglp.SheetSize) / float64(2)))
 	}

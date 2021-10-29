@@ -127,10 +127,10 @@ func Run() {
 	scale := 2.0
 	scale = scale
 
-	upscaleBffnt("Ancient", "./nintendo_system_ui/botw-sheikah.ttf", scale)
+	// upscaleBffnt("Ancient", "./nintendo_system_ui/botw-sheikah.ttf", scale)
 	// upscaleBffnt("Caption", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-M.otf", scale)
 	// upscaleBffnt("Normal", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
-	// upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-DB.otf", scale)
+	upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/CafeStd.ttf", scale)
 	// upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
 	// upscaleBffnt("External", "./nintendo_system_ui/nintendo_ext_003.ttf", scale)
 
@@ -432,9 +432,8 @@ func getBotwFontSettings(fontName string, scale float64) (fontSize float64, outl
 		// This is what should be the proper setting for botw NormalS. However,
 		// there is a bug that stretches the words on the mini map if the
 		// textures are not the same width as the original.
-		fontSize = 9 * scale
-		// fontSize = 9 * scale
-		outlineOffset = 2 * int(scale) // NormalS Characters have a 2px wide outline with 25% opacaity. I use GIMP.
+		fontSize = 10 * scale
+		outlineOffset = 3 // NormalS Characters have a 2px wide outline with 25% opacaity. I use GIMP.
 
 		// Boost the font size and minimize the opacity outline to let
 		// the character fill out the bounds of the texture as much as
