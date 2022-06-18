@@ -16,22 +16,34 @@ import (
 )
 
 func TestBFFNT(t *testing.T) {
-	// testCase(t, "../WiiU_fonts/botw/Ancient/Ancient_00.bffnt", "bc6525a0089b9ddc90a2f25a1d68291e")
-	testCase(t, "../WiiU_fonts/botw/Special/Special_00.bffnt", "4d973f84b287d787e5b1ed8d1fd82799")
-	testCase(t, "../WiiU_fonts/botw/Caption/Caption_00.bffnt", "efc0070d11289b18f28525a755e75acb")
-	testCase(t, "../WiiU_fonts/botw/Normal/Normal_00.bffnt", "8d7f1ec5872da263a95a5937ccd8a372")
-	testCase(t, "../WiiU_fonts/botw/NormalS/NormalS_00.bffnt", "f993a5822f3ce05e51e0440b46bd1345")
-	testCase(t, "../WiiU_fonts/botw/External/External_00.bffnt", "1ccd353cceda991d51c156fbb8b8a891")
+	testCases := []struct {
+		filename string
+		fileHash string
+	}{
+		// {"../WiiU_fonts/botw/Ancient/Ancient_00.bffnt", "bc6525a0089b9ddc90a2f25a1d68291e"},
+		{"../WiiU_fonts/botw/Special/Special_00.bffnt", "4d973f84b287d787e5b1ed8d1fd82799"},
+		{"../WiiU_fonts/botw/Caption/Caption_00.bffnt", "efc0070d11289b18f28525a755e75acb"},
+		{"../WiiU_fonts/botw/Normal/Normal_00.bffnt", "8d7f1ec5872da263a95a5937ccd8a372"},
+		{"../WiiU_fonts/botw/NormalS/NormalS_00.bffnt", "f993a5822f3ce05e51e0440b46bd1345"},
+		{"../WiiU_fonts/botw/External/External_00.bffnt", "1ccd353cceda991d51c156fbb8b8a891"},
 
-	testCase(t, "../WiiU_fonts/comicfont/Normal_00.bffnt", "f67eaccca824952de8cd26bb05db530b")
-	testCase(t, "../WiiU_fonts/kirbysans/Normal_00.bffnt", "76c3b7edaed85fec14e0a195fc7dbdaa")
-	testCase(t, "../WiiU_fonts/kirbyscript/Normal_00.bffnt", "a948720350878355009a364c3ff6206c")
-	testCase(t, "../WiiU_fonts/popjoy_font/Normal_00.bffnt", "8c5bd5e7dd1d8eb0e17144ba4275c4b1")
-	testCase(t, "../WiiU_fonts/turbofont/Normal_00.bffnt", "7d935c25fc18d26a5f4a6c2b5cf24cce")
+		{"../WiiU_fonts/comicfont/Normal_00.bffnt", "f67eaccca824952de8cd26bb05db530b"},
+		{"../WiiU_fonts/kirbysans/Normal_00.bffnt", "76c3b7edaed85fec14e0a195fc7dbdaa"},
+		{"../WiiU_fonts/kirbyscript/Normal_00.bffnt", "a948720350878355009a364c3ff6206c"},
+		{"../WiiU_fonts/popjoy_font/Normal_00.bffnt", "8c5bd5e7dd1d8eb0e17144ba4275c4b1"},
+		{"../WiiU_fonts/turbofont/Normal_00.bffnt", "7d935c25fc18d26a5f4a6c2b5cf24cce"},
+	}
+
+	for _, tc := range testCases {
+		fmt.Println(fmt.Sprintf("Testing bffnt file %s", tc.filename))
+		t.Run(tc.filename, func(t *testing.T) {
+			t.Parallel()
+			testCase(t, tc.filename, tc.fileHash)
+		})
+	}
 }
 
 func testCase(t *testing.T, bffntFile string, expectedFileHash string) {
-	t.Log(fmt.Sprintf("Testing %s", bffntFile))
 	bffntRaw, err := ioutil.ReadFile(bffntFile)
 	handleErr(err)
 
