@@ -121,6 +121,8 @@ func Run() {
 	flag.BoolVar(&Debug, "d", false, "enable debug output")
 	flag.Parse()
 
+	initializeGlyphMaps()
+
 	// scale 1 for 1280×720 (original)
 	// scale 2 for 2560 × 1440
 	// scale 3 for 3840 x 2160
@@ -130,9 +132,9 @@ func Run() {
 	// upscaleBffnt("Ancient", "./nintendo_system_ui/botw-sheikah.ttf", scale)
 	// upscaleBffnt("Caption", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-M.otf", scale)
 	// upscaleBffnt("Normal", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
-	upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/CafeStd.ttf", scale)
+	// upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/CafeStd.ttf", scale)
 	// upscaleBffnt("NormalS", "./nintendo_system_ui/DSi-Wii-3DS-Wii_U/FOT-RodinBokutoh-Pro-B.otf", scale)
-	// upscaleBffnt("External", "./nintendo_system_ui/nintendo_ext_003.ttf", scale)
+	upscaleBffnt("External", "./nintendo_system_ui/nintendo_ext_003.ttf", scale)
 
 	return
 }
@@ -319,12 +321,6 @@ func (b *BFFNT) generateTexture(fontName string, fontFile string, scale float64)
 		Dot:  fixed.P(0, 0),
 	}
 
-	fmt.Println("face ew", face.Kern('e', 'w'))
-	fmt.Println("krng ew", b.KRNG.Kern('e', 'w'))
-	// fmt.Println()
-	// fmt.Println("face ne", face.Kern('n', 'e'))
-	// fmt.Println("krng ne", b.KRNG.Kern('n', 'e'))
-
 	var charIndex, x, y int
 	for rowIndex := 0; ; rowIndex++ {
 		y = realCellHeight*rowIndex + realBaseline
@@ -454,19 +450,28 @@ func getBotwFontSettings(fontName string, scale float64) (fontSize float64, outl
 
 // In most cases the ascii code maps to the correct glyph in the font file. For
 // some glyphs, the ascii does not match the glyph in the font file (because we
-// don't have the exact font file nintendo used). If the font file stil has the
-// correct glyph at a different index we can create a manual mapping here.  No
-// manual mapping means the ascii maps to the correct index in the font file.
+// don't have the exact font file nintendo used). If the font file still
+// contains the correct glyph at a different index we can create a manual
+// mapping here.  No manual mapping means the ascii maps to the correct index
+// in the font file.
+var ancientMap map[uint16]uint16
+var externalMap map[uint16]uint16
+
+func initializeGlyphMaps() {
+	ancientMap = getBotwAncientMapping()
+	externalMap = getBotwExternalMapping()
+}
+
 func asciiToGlyph(fontName string, ascii uint16) uint16 {
 	var asciiToGlyphMap map[uint16]uint16
 	switch fontName {
 	case "Ancient":
-		asciiToGlyphMap = getBotwAncientMap()
+		asciiToGlyphMap = ancientMap
 	case "Caption":
 	case "Normal":
 	case "NormalS":
 	case "External":
-		asciiToGlyphMap = getBotwExternalMap()
+		asciiToGlyphMap = externalMap
 	default:
 		panic("unknown font mapping")
 	}
@@ -480,7 +485,7 @@ func asciiToGlyph(fontName string, ascii uint16) uint16 {
 }
 
 // mapping botw external font character indexes to nintendo_ext_003.ttf
-func getBotwAncientMap() map[uint16]uint16 {
+func getBotwAncientMapping() map[uint16]uint16 {
 	botwAncientMapping := make(map[uint16]uint16, 0)
 
 	// map indexes with no glyphs to empty
@@ -505,7 +510,7 @@ func getBotwAncientMap() map[uint16]uint16 {
 }
 
 // mapping botw external font character indexes to nintendo_ext_003.ttf
-func getBotwExternalMap() map[uint16]uint16 {
+func getBotwExternalMapping() map[uint16]uint16 {
 	botwExternalMapping := make(map[uint16]uint16, 0)
 
 	botwExternalMapping[57408] = 57568 // A
